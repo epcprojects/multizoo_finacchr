@@ -45,7 +45,7 @@ export class EmailService {
     inviteToken: string;
   }): Promise<void> {
     const appUrl = process.env.FRONTEND_APP_URL || 'http://localhost:4200';
-    const link = `${appUrl}/accept-invite?token=${params.inviteToken}`;
+    const link = `${appUrl}/set-password?token=${params.inviteToken}&mode=invite`;
 
     await this.send(
       params.to,
@@ -62,7 +62,7 @@ export class EmailService {
     resetToken: string;
   }): Promise<void> {
     const appUrl = process.env.FRONTEND_APP_URL || 'http://localhost:4200';
-    const link = `${appUrl}/reset-password?token=${params.resetToken}`;
+    const link = `${appUrl}/set-password?token=${params.resetToken}`;
 
     await this.send(
       params.to,

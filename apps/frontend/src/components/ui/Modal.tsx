@@ -79,22 +79,22 @@ export default function Modal({
           onMouseDown={(e) => e.stopPropagation()}
         >
           {showHeader && (
-            <div className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
               <div className="flex items-center gap-3">
                 {icon}
                 <div>
-                  <h2 className="text-base font-semibold text-ink md:text-lg">
+                  <h2 className="text-base font-semibold text-black md:text-lg">
                     {title}
                   </h2>
                   {subtitle && (
-                    <p className="text-xs text-ink-soft">{subtitle}</p>
+                    <p className="text-gray-800 text-xs font-normal">{subtitle}</p>
                   )}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-faint hover:bg-surface-2"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
                 aria-label="Close"
               >
                 <CloseIcon />
@@ -102,12 +102,12 @@ export default function Modal({
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto bg-surface p-4 md:p-5">
+          <div className="flex-1 overflow-y-auto bg-white p-4 md:p-5">
             {children}
           </div>
 
           {showFooter && (
-            <div className="flex items-center justify-end gap-2 border-t border-line bg-surface p-3 md:p-4">
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-white p-3 md:p-4">
               {!hideCancelBtn && (
                 <Button variant="secondary" onClick={onClose}>
                   {cancelLabel}

@@ -31,3 +31,21 @@ export async function getMyself() {
   const { data } = await apiClient.get('/users/me');
   return data;
 }
+
+export async function forgotPassword(email: string) {
+  const { data } = await apiClient.post('/auth/forgot-password', { email });
+  return data;
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+  confirmPassword: string,
+) {
+  const { data } = await apiClient.post('/auth/reset-password', {
+    token,
+    newPassword,
+    confirmPassword,
+  });
+  return data;
+}
