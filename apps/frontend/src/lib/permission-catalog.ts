@@ -1,0 +1,25 @@
+/**
+ * Human-readable labels for @multizoo/types' Permission enum. Kept as a
+ * plain local list rather than importing the backend enum, to avoid the
+ * frontend build depending on cross-package TS resolution for one dropdown.
+ */
+export const PERMISSION_CATALOG = [
+  { label: 'View consolidated P&L', value: 'pnl.view_consolidated' },
+  { label: 'View own profit share', value: 'pnl.view_own_share' },
+  { label: 'Enter transactions (own unit)', value: 'transactions.create_own_unit' },
+  { label: 'Reconcile ledgers', value: 'ledger.reconcile' },
+  { label: 'Mark attendance (own unit)', value: 'attendance.mark_own_unit' },
+  { label: 'Approve leave (own unit)', value: 'leave.approve_own_unit' },
+  { label: 'Raise disciplinary fine (own unit)', value: 'disciplinary.raise_own_unit' },
+  { label: 'Approve disciplinary fine', value: 'disciplinary.approve' },
+  { label: 'Manage employee records', value: 'employee.manage' },
+  { label: 'Run payroll', value: 'payroll.run' },
+  { label: 'Edit allocation rules', value: 'rules.edit_allocation' },
+  { label: 'Edit HR policy rules', value: 'rules.edit_hr_policy' },
+  { label: 'Approve loans', value: 'loans.approve' },
+  { label: 'Initiate loans', value: 'loans.initiate' },
+  { label: 'Generate reports (all units)', value: 'reports.generate' },
+  { label: 'Generate reports (own unit)', value: 'reports.generate_own_unit' },
+  { label: 'Invite users', value: 'users.invite' },
+  { label: 'Manage roles', value: 'roles.manage' },
+];

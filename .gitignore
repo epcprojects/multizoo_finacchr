@@ -10,6 +10,7 @@ node_modules
 # builds
 .next
 out-tsc
+*.tsbuildinfo
 
 # env
 .env

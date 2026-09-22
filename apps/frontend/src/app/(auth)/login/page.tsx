@@ -4,6 +4,8 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '../../../lib/api/auth';
 import { setToken } from '../../../lib/api/client';
+import Input from '../../../components/ui/Input';
+import Button from '../../../components/ui/Button';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
       setToken(result.accessToken);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response
@@ -32,47 +34,35 @@ export default function LoginPage() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-ink mb-1">
-        Sign in
-      </h1>
+      <h1 className="mb-1 text-xl font-bold text-ink">Sign in</h1>
 
       {error && (
-        <p className="text-sm text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2">
+        <p className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-ink-soft">Email</span>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border border-line rounded-md px-3 py-2 text-sm text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
-          placeholder="you@multizoo.com"
-        />
-      </label>
+      <Input
+        label="Email"
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@multizoo.com"
+      />
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-ink-soft">Password</span>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border border-line rounded-md px-3 py-2 text-sm text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
-          placeholder="••••••••"
-        />
-      </label>
+      <Input
+        label="Password"
+        type="password"
+        required
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="••••••••"
+      />
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="mt-2 bg-accent text-white font-medium text-sm rounded-md px-4 py-2.5 hover:opacity-90 disabled:opacity-60 transition"
-      >
+      <Button type="submit" disabled={loading} className="mt-2 w-full">
         {loading ? 'Signing in…' : 'Sign in'}
-      </button>
+      </Button>
     </form>
   );
 }
