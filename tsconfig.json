@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "./apps/api" },
+    { "path": "./apps/frontend" },
+    { "path": "./libs/shared/interfaces" },
+    { "path": "./libs/shared/types" },
+    { "path": "./libs/shared/utils" }
+  ]
+}

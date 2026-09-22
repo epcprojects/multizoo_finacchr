@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+
+/*
+ * Same technical approach as EPCCRM's frontend theme — Tailwind v4
+ * `@theme inline`, a next/font/google display face, and a semantic
+ * warning/error/success ramp shaped the same way (25/100/200/500/600/800/900
+ * for warning, 100/200 for error, 500 for success) — but Multizoo's own
+ * jade/gold brand, already established across the architecture plan,
+ * Follow the Rupee, and Sprint Zero to Cutover. Not Harper's purple.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-bg: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--foreground);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+
+  /* brand — primary/primary-dark/primary-light, same shape as EPCCRM's ramp */
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-light: var(--accent-light);
+  --color-accent-soft: var(--accent-soft);
+
+  /* semantic ramp */
+  --color-warning-25: var(--warning-25);
+  --color-warning-100: var(--warning-100);
+  --color-warning-200: var(--warning-200);
+  --color-warning-500: var(--warning-500);
+  --color-warning-600: var(--warning-600);
+  --color-warning-800: var(--warning-800);
+  --color-warning-900: var(--warning-900);
+  --color-error-100: var(--error-100);
+  --color-error-200: var(--error-200);
+  --color-success-500: var(--success-500);
+
+  /* kept for backward-compatible naming used across the app so far */
+  --color-gold: var(--warning-500);
+  --color-gold-soft: var(--warning-100);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--error-100);
+}
+
+:root {
+  --background: #f3f5f1;
+  --foreground: #16201b;
+  --surface: #ffffff;
+  --surface-2: #eaeee7;
+  --ink-soft: #4a5750;
+  --ink-faint: #7c8a82;
+  --line: #d9dfd4;
+
+  --accent: #1b6e52;
+  --accent-ink: #0f4a37;
+  --accent-light: #54b08a;
+  --accent-soft: #e1efe6;
+
+  --warning-25: #fcf8ef;
+  --warning-100: #f1e9d3;
+  --warning-200: #e4d3a5;
+  --warning-500: #8f6c1a;
+  --warning-600: #745815;
+  --warning-800: #4a3810;
+  --warning-900: #33270b;
+
+  --danger: #a8433a;
+  --error-100: #f4e1de;
+  --error-200: #e8c0ba;
+  --success-500: #17b26a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --background: #10160f;
+    --foreground: #e9ede5;
+    --surface: #171f17;
+    --surface-2: #1e271d;
+    --ink-soft: #afbbaa;
+    --ink-faint: #7c8a78;
+    --line: #293325;
+
+    --accent: #54b08a;
+    --accent-ink: #8fd3b2;
+    --accent-light: #2e8f6b;
+    --accent-soft: #1d2f25;
+
+    --warning-25: #201c10;
+    --warning-100: #332b18;
+    --warning-200: #4a3d1f;
+    --warning-500: #d4ae55;
+    --warning-600: #e0bd6e;
+    --warning-800: #f1dfae;
+    --warning-900: #f8eed4;
+
+    --danger: #e38f82;
+    --error-100: #33201c;
+    --error-200: #4a2d26;
+    --success-500: #3fcf90;
+  }
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Same convention as EPCCRM: buttons look clickable unless actually disabled. */
+button:not(:disabled):not([aria-disabled='true']) {
+  @apply cursor-pointer;
+}
+
+button:disabled,
+button[aria-disabled='true'] {
+  @apply cursor-not-allowed;
+}
+
+.Toastify__toast {
+  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.Toastify__toast-container {
+  @apply w-fit max-w-[calc(100vw-32px)] p-0!;
+}
