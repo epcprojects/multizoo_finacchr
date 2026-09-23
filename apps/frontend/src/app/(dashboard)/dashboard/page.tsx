@@ -58,12 +58,18 @@ export default function DashboardPage() {
   }, [refresh, canViewLedger, canPost]);
 
   const t = position?.totals;
+  // Columns = the classes configured as money on hand (Cash, Bank, … + any added later).
+  const cols = position?.classes ?? [];
+  const CLASS_COLORS = ['#34D399', '#818CF8', '#40C3FF', '#F472B6', '#FBBF24', '#A3E635'];
   const heroStats = t
     ? [
         { key: 'total', label: 'Group cash position', count: money(t.total), color: '#A78BFA' },
-        { key: 'cash', label: 'Cash in hand', count: money(t.cash), color: '#34D399' },
-        { key: 'bank', label: 'Bank', count: money(t.bank), color: '#818CF8' },
-        { key: 'wallet', label: 'Easypaisa', count: money(t.wallet), color: '#40C3FF' },
+        ...cols.slice(0, 3).map((c, i) => ({
+          key: c.id,
+          label: c.name,
+          count: money(t.byClass[c.id] ?? '0'),
+          color: CLASS_COLORS[i % CLASS_COLORS.length],
+        })),
         { key: 'net', label: asOf === todayIso() ? 'Today in / out' : 'Day in / out', count: `${money(t.inflow)} / ${money(t.outflow)}`, color: '#F5A623' },
       ]
     : [];
@@ -118,7 +124,7 @@ export default function DashboardPage() {
                 <table className="w-full min-w-160 text-left">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['Unit', 'Cash in hand', 'Bank', 'Easypaisa', 'Total', 'In / Out'].map((h, i) => (
+                      {['Unit', ...cols.map((c) => c.name), 'Total', 'In / Out'].map((h, i) => (
                         <th
                           key={h}
                           className={clsx('sticky top-0 bg-gray-50 px-4 py-2.5 text-xs font-semibold text-gray-900', i > 0 && 'text-right')}
@@ -136,11 +142,13 @@ export default function DashboardPage() {
                             <p className="text-sm font-medium text-gray-900">{u.name}</p>
                             <p className="font-mono text-xs text-gray-500">{u.code}</p>
                           </td>
-                          {(['CASH', 'BANK', 'WALLET'] as const).map((sub) => {
-                            const acct = u.accounts.find((a) => a.subtype === sub);
-                            const value = sub === 'CASH' ? u.cash : sub === 'BANK' ? u.bank : u.wallet;
+                          {cols.map((c) => {
+                            const own = u.accounts.filter((a) => a.classId === c.id);
+                            // One account → link straight to its ledger; several → the unit's chart.
+                            const acct = own.length === 1 ? own[0] : null;
+                            const value = u.byClass[c.id] ?? '0.00';
                             return (
-                              <td key={sub} className="px-4 py-3 text-right text-sm tabular-nums">
+                              <td key={c.id} className="px-4 py-3 text-right text-sm tabular-nums">
                                 {acct ? (
                                   <Link
                                     href={`/accounts/${acct.id}`}
@@ -148,6 +156,8 @@ export default function DashboardPage() {
                                   >
                                     {money(value)}
                                   </Link>
+                                ) : own.length ? (
+                                  <span className={toPaisa(value) < 0n ? 'text-red-600' : 'text-gray-800'}>{money(value)}</span>
                                 ) : (
                                   <span className="text-gray-300">—</span>
                                 )}
@@ -164,7 +174,7 @@ export default function DashboardPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                        <td colSpan={cols.length + 3} className="px-4 py-8 text-center text-sm text-gray-500">
                           {position ? 'No business units available to you.' : 'Loading…'}
                         </td>
                       </tr>
@@ -174,7 +184,7 @@ export default function DashboardPage() {
                     <tfoot>
                       <tr className="border-t border-gray-200 bg-gray-50 font-semibold">
                         <td className="px-4 py-3 text-sm text-gray-900">Group</td>
-                        {[t.cash, t.bank, t.wallet, t.total].map((v, i) => (
+                        {[...cols.map((c) => t.byClass[c.id] ?? '0.00'), t.total].map((v, i) => (
                           <td key={i} className="px-4 py-3 text-right text-sm tabular-nums text-gray-900">
                             {money(v)}
                           </td>

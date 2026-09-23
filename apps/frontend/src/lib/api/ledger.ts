@@ -1,16 +1,7 @@
 import { apiClient } from './client';
 
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
-export type AccountSubtype =
-  | 'CASH'
-  | 'BANK'
-  | 'WALLET'
-  | 'RESERVE'
-  | 'RECEIVABLE'
-  | 'PAYABLE'
-  | 'EQUITY'
-  | 'INCOME'
-  | 'EXPENSE';
+export type UnitRule = 'UNIT_REQUIRED' | 'GROUP_ONLY' | 'EITHER';
 export type BusinessUnitType =
   | 'WILDLIFE_PARK'
   | 'FOOD_BEVERAGE'
@@ -26,7 +17,13 @@ export type EntryKind =
   | 'GENERAL'
   | 'REVERSAL';
 
-export const LIQUID: AccountSubtype[] = ['CASH', 'BANK', 'WALLET'];
+export const UNIT_RULE_LABELS: Record<UnitRule, string> = {
+  UNIT_REQUIRED: 'Belongs to a business unit',
+  GROUP_ONLY: 'Group-wide (unit recorded on each entry)',
+  EITHER: 'Either — chosen per account',
+};
+
+export const ACCOUNT_TYPES: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE'];
 
 export const UNIT_TYPE_LABELS: Record<BusinessUnitType, string> = {
   WILDLIFE_PARK: 'Wildlife park',
@@ -54,17 +51,40 @@ export const ACCOUNT_TYPE_HINTS: Record<AccountType, string> = {
   EXPENSE: 'Money spent to run the business',
 };
 
-export const SUBTYPE_LABELS: Record<AccountSubtype, string> = {
-  CASH: 'Cash',
-  BANK: 'Bank',
-  WALLET: 'Mobile wallet',
-  RESERVE: 'Reserve',
-  RECEIVABLE: 'Receivable',
-  PAYABLE: 'Payable',
-  EQUITY: 'Equity',
-  INCOME: 'Income',
-  EXPENSE: 'Expense',
-};
+/** A configurable kind of account — see Accounts → Settings. */
+export interface AccountClassRecord {
+  id: string;
+  key: string;
+  name: string;
+  type: AccountType;
+  unitRule: UnitRule;
+  codeStart: number;
+  codeEnd: number;
+  isLiquid: boolean;
+  isReserve: boolean;
+  isReconcilable: boolean;
+  provisionForNewUnits: boolean;
+  defaultAccountName: string | null;
+  sortOrder: number;
+  isSystem: boolean;
+  isActive: boolean;
+  description: string | null;
+  accountCount: number;
+}
+
+/** The slice of a class every account carries with it. */
+export type AccountClassRef = Pick<
+  AccountClassRecord,
+  'id' | 'key' | 'name' | 'unitRule' | 'isLiquid' | 'isReserve' | 'isReconcilable'
+>;
+
+export interface ChartSettingsRecord {
+  unitCodePattern: string;
+  groupCodePattern: string;
+  codeStep: number;
+  updatedAt: string | null;
+  examples: { unit: string; group: string };
+}
 
 export const KIND_LABELS: Record<EntryKind, string> = {
   MONEY_IN: 'Money in',
@@ -92,9 +112,10 @@ export interface AccountRecord {
   code: string;
   name: string;
   type: AccountType;
-  subtype: AccountSubtype;
+  accountClass: AccountClassRef | null;
   isPostable: boolean;
   isSystem: boolean;
+  systemKey: string | null;
   isActive: boolean;
   description: string | null;
   parentId: string | null;
@@ -110,7 +131,8 @@ export interface EntryLine {
   accountId: string;
   accountCode: string;
   accountName: string;
-  accountSubtype: AccountSubtype;
+  accountClassName: string | null;
+  isLiquid: boolean;
   debit: string;
   credit: string;
   memo: string | null;
@@ -169,10 +191,9 @@ export interface CashPositionUnit {
   name: string;
   type: BusinessUnitType;
   isActive: boolean;
-  accounts: { id: string; code: string; name: string; subtype: AccountSubtype; isActive: boolean; balance: string }[];
-  cash: string;
-  bank: string;
-  wallet: string;
+  accounts: { id: string; code: string; name: string; classId: string; isActive: boolean; balance: string }[];
+  /** Balance per money-on-hand class id. */
+  byClass: Record<string, string>;
   total: string;
   inflow: string;
   outflow: string;
@@ -180,8 +201,22 @@ export interface CashPositionUnit {
 
 export interface CashPosition {
   asOf: string;
-  totals: { cash: string; bank: string; wallet: string; total: string; inflow: string; outflow: string };
+  /** The money-on-hand classes — the report's columns, in order. */
+  classes: { id: string; key: string; name: string; isActive: boolean }[];
+  totals: { byClass: Record<string, string>; total: string; inflow: string; outflow: string };
   units: CashPositionUnit[];
+}
+
+export interface UnitTemplates {
+  reserveCatalog: string[];
+  provisionableClasses: {
+    id: string;
+    key: string;
+    name: string;
+    accountName: string;
+    isLiquid: boolean;
+    byDefault: boolean;
+  }[];
 }
 
 export interface Reconciliation {
@@ -212,7 +247,7 @@ export async function listBusinessUnits() {
 }
 
 export async function getUnitTemplates() {
-  const { data } = await apiClient.get<{ reserveCatalog: string[] }>('/business-units/templates');
+  const { data } = await apiClient.get<UnitTemplates>('/business-units/templates');
   return data;
 }
 
@@ -221,8 +256,9 @@ export async function createBusinessUnit(payload: {
   name: string;
   type: BusinessUnitType;
   description?: string;
+  accountClassIds: string[];
   reserveBuckets: string[];
-  openingBalances?: { asOfDate: string; cash?: string; bank?: string; wallet?: string };
+  openingBalances?: { asOfDate: string; amounts: { classId: string; amount: string }[] };
 }) {
   const { data } = await apiClient.post<BusinessUnitRecord>('/business-units', payload);
   return data;
@@ -255,7 +291,7 @@ export async function getAccount(id: string) {
 
 export async function createAccount(payload: {
   name: string;
-  subtype: AccountSubtype;
+  classId: string;
   businessUnitId?: string;
   parentId?: string;
   code?: string;
@@ -268,9 +304,45 @@ export async function createAccount(payload: {
 
 export async function updateAccount(
   id: string,
-  payload: Partial<{ name: string; description: string; isActive: boolean }>,
+  payload: Partial<{ name: string; code: string; classId: string; description: string; isActive: boolean }>,
 ) {
   const { data } = await apiClient.patch<AccountRecord>(`/accounts/${id}`, payload);
+  return data;
+}
+
+// --- Account classes & numbering -------------------------------------------
+
+export type AccountClassPayload = Omit<
+  AccountClassRecord,
+  'id' | 'key' | 'isSystem' | 'isActive' | 'accountCount' | 'defaultAccountName' | 'description'
+> & { defaultAccountName?: string; description?: string };
+
+export async function listAccountClasses(includeInactive = false) {
+  const { data } = await apiClient.get<AccountClassRecord[]>('/account-classes', {
+    params: includeInactive ? { includeInactive: true } : {},
+  });
+  return data;
+}
+
+export async function createAccountClass(payload: AccountClassPayload) {
+  const { data } = await apiClient.post<AccountClassRecord>('/account-classes', payload);
+  return data;
+}
+
+export async function updateAccountClass(id: string, payload: Partial<AccountClassPayload & { isActive: boolean }>) {
+  const { data } = await apiClient.patch<AccountClassRecord>(`/account-classes/${id}`, payload);
+  return data;
+}
+
+export async function getChartSettings() {
+  const { data } = await apiClient.get<ChartSettingsRecord>('/chart-settings');
+  return data;
+}
+
+export async function updateChartSettings(
+  payload: Partial<Pick<ChartSettingsRecord, 'unitCodePattern' | 'groupCodePattern' | 'codeStep'>>,
+) {
+  const { data } = await apiClient.patch<ChartSettingsRecord>('/chart-settings', payload);
   return data;
 }
 

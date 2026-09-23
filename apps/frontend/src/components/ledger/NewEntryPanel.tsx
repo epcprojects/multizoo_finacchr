@@ -8,7 +8,6 @@ import Select from '../ui/Select';
 import Button from '../ui/Button';
 import { PlusIcon, TrashIcon } from '../ui/icons';
 import {
-  LIQUID,
   listAccounts,
   postJournalEntry,
   type AccountRecord,
@@ -121,7 +120,7 @@ export default function NewEntryPanel({
     }
     setLoadingAccounts(true);
     listAccounts({ businessUnitId: unitId })
-      .then((list) => setAccounts(list.filter((a) => a.isPostable && a.isActive && a.subtype !== 'RESERVE')))
+      .then((list) => setAccounts(list.filter((a) => a.isPostable && a.isActive && !a.accountClass?.isReserve)))
       .catch(() => setAccounts([]))
       .finally(() => setLoadingAccounts(false));
     setLiquidId('');
@@ -134,8 +133,8 @@ export default function NewEntryPanel({
   }, [kind]);
 
   const byId = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
-  const liquid = accounts.filter((a) => LIQUID.includes(a.subtype));
-  const nonLiquid = accounts.filter((a) => !LIQUID.includes(a.subtype));
+  const liquid = accounts.filter((a) => a.accountClass?.isLiquid);
+  const nonLiquid = accounts.filter((a) => !a.accountClass?.isLiquid);
   const opts = (list: AccountRecord[]) => list.map((a) => ({ label: accountLabel(a), value: a.id }));
 
   // "Received from" favours income; "paid for" favours expenses.
@@ -150,7 +149,7 @@ export default function NewEntryPanel({
           ? opts(liquid.filter((a) => a.id !== liquidId))
           : opts(accounts.filter((a) => a.type === 'ASSET' || a.type === 'LIABILITY'));
 
-  const openingEquity = accounts.find((a) => a.code === '3900');
+  const openingEquity = accounts.find((a) => a.systemKey === 'OPENING_BALANCE_EQUITY');
   const amountPaisa = isAmount(amount) ? toPaisa(amount) : 0n;
 
   /** The entry's lines, built from the simple form or the journal grid. */

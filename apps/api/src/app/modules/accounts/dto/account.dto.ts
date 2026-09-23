@@ -9,10 +9,13 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { AccountSubtype, AccountType } from '@multizoo/types';
+import { AccountType } from '@multizoo/types';
 
 const toBool = ({ value }: { value: unknown }) =>
   value === true || value === 'true' || value === '1';
+
+const CODE_REGEX = /^[A-Z0-9\-_./]{1,30}$/;
+const CODE_MESSAGE = 'code may only contain A–Z, 0–9 and - _ . / (up to 30 characters)';
 
 export class ListAccountsQueryDto {
   @IsOptional()
@@ -39,11 +42,11 @@ export class CreateAccountDto {
   @MaxLength(120)
   name!: string;
 
-  /** The account type (asset, expense, …) is derived from this. */
-  @IsEnum(AccountSubtype)
-  subtype!: AccountSubtype;
+  /** The account class — its bucket, unit rule and code range come from it. */
+  @IsUUID()
+  classId!: string;
 
-  /** Required for cash/bank/wallet/reserve; forbidden for income/expense. */
+  /** Required or forbidden depending on the class's unit rule. */
   @IsOptional()
   @IsUUID()
   businessUnitId?: string;
@@ -52,14 +55,12 @@ export class CreateAccountDto {
   @IsUUID()
   parentId?: string;
 
-  /** Auto-generated when omitted. */
+  /** Generated from the numbering settings when omitted. */
   @IsOptional()
-  @Matches(/^[A-Z0-9-]{2,30}$/, {
-    message: 'code may only contain A–Z, 0–9 and dashes (2–30 characters)',
-  })
+  @Matches(CODE_REGEX, { message: CODE_MESSAGE })
   code?: string;
 
-  /** False creates a group heading that other accounts sit under. */
+  /** False creates a heading that other accounts sit under. */
   @IsOptional()
   @IsBoolean()
   isPostable?: boolean;
@@ -76,6 +77,16 @@ export class UpdateAccountDto {
   @MinLength(1)
   @MaxLength(120)
   name?: string;
+
+  /** Codes are labels — entries reference the account's id — so they can change. */
+  @IsOptional()
+  @Matches(CODE_REGEX, { message: CODE_MESSAGE })
+  code?: string;
+
+  /** Reclassify, e.g. Bank → Mobile wallet. Must stay in the same bucket. */
+  @IsOptional()
+  @IsUUID()
+  classId?: string;
 
   @IsOptional()
   @IsString()

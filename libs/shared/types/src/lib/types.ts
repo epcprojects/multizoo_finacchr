@@ -73,11 +73,17 @@ export enum AccountType {
   EXPENSE = 'EXPENSE',
 }
 
-export enum AccountSubtype {
+/**
+ * Keys of the account classes seeded on day one. Classes are DATA (the
+ * account_classes table) — the Accountant can add more, rename these,
+ * change their code ranges — so behaviour never switches on these keys;
+ * it reads the class's flags (isLiquid, isReserve, …). The keys exist only
+ * so seeds and the chart template can refer to a class.
+ */
+export enum SystemAccountClass {
   CASH = 'CASH',
   BANK = 'BANK',
   WALLET = 'WALLET',
-  /** Earmarked cash. Only the allocation engine (Module 3) posts to these. */
   RESERVE = 'RESERVE',
   RECEIVABLE = 'RECEIVABLE',
   PAYABLE = 'PAYABLE',
@@ -86,12 +92,15 @@ export enum AccountSubtype {
   EXPENSE = 'EXPENSE',
 }
 
-/** Subtypes that make up a unit's cash position (dashboard, transfers). */
-export const LIQUID_SUBTYPES: readonly AccountSubtype[] = [
-  AccountSubtype.CASH,
-  AccountSubtype.BANK,
-  AccountSubtype.WALLET,
-];
+/** Whether accounts of a class belong to a business unit or the whole group. */
+export enum AccountClassUnitRule {
+  /** Always owned by one unit (cash, bank, reserves). */
+  UNIT_REQUIRED = 'UNIT_REQUIRED',
+  /** Always group-wide; the unit is recorded on each journal line (income, expenses). */
+  GROUP_ONLY = 'GROUP_ONLY',
+  /** Chosen per account. */
+  EITHER = 'EITHER',
+}
 
 /** Asset and expense balances grow with debits; the rest grow with credits. */
 export const DEBIT_NORMAL_TYPES: readonly AccountType[] = [

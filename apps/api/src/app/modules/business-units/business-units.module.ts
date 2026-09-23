@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BusinessUnit } from './entities/business-unit.entity';
 import { Account } from '../accounts/entities/account.entity';
+import { AccountClass } from '../accounts/entities/account-class.entity';
 import { UserBusinessUnit } from '../users/entities/user.business-unit.entity';
 import { JournalModule } from '../journal/journal.module';
 import { LedgerModule } from '../ledger/ledger.module';
@@ -10,7 +11,7 @@ import { BusinessUnitsController } from './business-units.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BusinessUnit, Account, UserBusinessUnit]),
+    TypeOrmModule.forFeature([BusinessUnit, Account, AccountClass, UserBusinessUnit]),
     JournalModule,
     LedgerModule,
   ],

@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   MinLength,
@@ -14,21 +15,24 @@ import {
 import { BusinessUnitType } from '@multizoo/types';
 import { AMOUNT_REGEX, DATE_REGEX } from '../../journal/dto/journal-entry.dto';
 
+export class OpeningAmountDto {
+  /** The class of the provisioned account the amount opens (e.g. Cash). */
+  @IsUUID()
+  classId!: string;
+
+  @Matches(AMOUNT_REGEX)
+  amount!: string;
+}
+
 export class OpeningBalancesDto {
   @Matches(DATE_REGEX, { message: 'asOfDate must be YYYY-MM-DD' })
   asOfDate!: string;
 
-  @IsOptional()
-  @Matches(AMOUNT_REGEX)
-  cash?: string;
-
-  @IsOptional()
-  @Matches(AMOUNT_REGEX)
-  bank?: string;
-
-  @IsOptional()
-  @Matches(AMOUNT_REGEX)
-  wallet?: string;
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => OpeningAmountDto)
+  amounts!: OpeningAmountDto[];
 }
 
 export class CreateBusinessUnitDto {
@@ -49,6 +53,16 @@ export class CreateBusinessUnitDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
+
+  /**
+   * Which account classes to create an account for (e.g. Cash, Bank).
+   * Omitted → every class marked "create for new units".
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsUUID('all', { each: true })
+  accountClassIds?: string[];
 
   /** Reserve bucket names, e.g. ["Salary", "Feed"] → "Salary Reserve", "Feed Reserve". */
   @IsArray()

@@ -6,6 +6,8 @@ import { Role } from '../../app/modules/roles/entities/role.entity';
 import { RoleClaim } from '../../app/modules/roles/entities/role.claim.entity';
 import { BusinessUnit } from '../../app/modules/business-units/entities/business-unit.entity';
 import { Account } from '../../app/modules/accounts/entities/account.entity';
+import { AccountClass } from '../../app/modules/accounts/entities/account-class.entity';
+import { ChartSettings } from '../../app/modules/accounts/entities/chart-settings.entity';
 import { UserBusinessUnit } from '../../app/modules/users/entities/user.business-unit.entity';
 import { JournalEntry } from '../../app/modules/journal/entities/journal-entry.entity';
 import { JournalLine } from '../../app/modules/journal/entities/journal-line.entity';
@@ -29,6 +31,8 @@ async function main() {
       RoleClaim,
       BusinessUnit,
       Account,
+      AccountClass,
+      ChartSettings,
       UserBusinessUnit,
       JournalEntry,
       JournalLine,

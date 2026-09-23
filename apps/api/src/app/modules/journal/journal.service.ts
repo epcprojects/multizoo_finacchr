@@ -6,11 +6,9 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
-  AccountSubtype,
   AccountType,
   JournalEntryKind,
   JournalEntrySource,
-  LIQUID_SUBTYPES,
 } from '@multizoo/types';
 import { businessDate, fromPaisa, isIsoDate, toPaisa } from '@multizoo/utils';
 import { JournalEntry } from './entities/journal-entry.entity';
@@ -101,7 +99,10 @@ export class JournalService {
     }
 
     const accountIds = [...new Set(input.lines.map((l) => l.accountId))];
-    const accounts = await m.find(Account, { where: { id: In(accountIds) } });
+    const accounts = await m.find(Account, {
+      where: { id: In(accountIds) },
+      relations: { accountClass: true },
+    });
     const byId = new Map(accounts.map((a) => [a.id, a]));
 
     for (const line of input.lines) {
@@ -115,7 +116,7 @@ export class JournalService {
           `${account.name} is a group heading — post to one of its sub-accounts.`,
         );
       }
-      if (account.subtype === AccountSubtype.RESERVE && !opts.allowReserve) {
+      if (account.accountClass.isReserve && !opts.allowReserve) {
         throw new BadRequestException(
           `${account.name} is a reserve — reserves are moved only by the income allocation engine.`,
         );
@@ -163,7 +164,7 @@ export class JournalService {
    */
   private assertKindShape(input: PostEntryInput, byId: Map<string, Account>) {
     const isLiquid = (id: string) =>
-      LIQUID_SUBTYPES.includes((byId.get(id) as Account).subtype);
+      (byId.get(id) as Account).accountClass.isLiquid;
     const debits = input.lines.filter((l) => l.debit && toPaisa(l.debit) > 0n);
     const credits = input.lines.filter((l) => l.credit && toPaisa(l.credit) > 0n);
 
@@ -257,6 +258,7 @@ export class JournalService {
       .leftJoinAndSelect('e.businessUnit', 'bu')
       .leftJoinAndSelect('e.lines', 'l')
       .leftJoinAndSelect('l.account', 'a')
+      .leftJoinAndSelect('a.accountClass', 'cls')
       .where('e.id = :id', { id })
       .orderBy('l.lineNo', 'ASC')
       .getOne();
@@ -287,6 +289,7 @@ export class JournalService {
       .leftJoinAndSelect('e.businessUnit', 'bu')
       .leftJoinAndSelect('e.lines', 'l')
       .leftJoinAndSelect('l.account', 'a')
+      .leftJoinAndSelect('a.accountClass', 'cls')
       .orderBy('e.entryDate', 'DESC')
       .addOrderBy('e.entryNo', 'DESC')
       .addOrderBy('l.lineNo', 'ASC');
@@ -365,7 +368,8 @@ export class JournalService {
           accountId: l.accountId,
           accountCode: l.account?.code,
           accountName: l.account?.name,
-          accountSubtype: l.account?.subtype,
+          accountClassName: l.account?.accountClass?.name ?? null,
+          isLiquid: l.account?.accountClass?.isLiquid ?? false,
           debit: l.debit,
           credit: l.credit,
           memo: l.memo,

@@ -2,21 +2,26 @@ import { DataSource } from 'typeorm';
 import { BusinessUnit } from '../../app/modules/business-units/entities/business-unit.entity';
 import {
   BUSINESS_UNIT_SEED,
+  defaultProvisionClassIds,
+  ensureAccountClasses,
   ensureGroupAccounts,
+  getChartSettings,
   provisionUnitAccounts,
 } from '../../app/modules/accounts/chart-of-accounts';
 
 /**
- * The six operating units + holding company and the standard chart of
- * accounts (docs/module-02-ledger-foundation.md). Idempotent: units and
- * accounts are matched by code and only ever added, never overwritten — so
- * re-running after the accountant renames "Bank Account" to the real bank
- * leaves their name alone.
+ * Account classes, numbering settings, the six operating units + holding
+ * company, and the standard chart of accounts
+ * (docs/module-02-ledger-foundation.md). Idempotent: everything is only
+ * ever added, never overwritten — re-running after the accountant renames
+ * a class or an account leaves their edit alone.
  */
 export async function seedLedger(dataSource: DataSource): Promise<void> {
   await dataSource.transaction(async (m) => {
-    const groupCreated = await ensureGroupAccounts(m);
-    console.log(`Group-wide accounts: ${groupCreated} created`);
+    console.log(`Account classes: ${await ensureAccountClasses(m)} created`);
+    const settings = await getChartSettings(m);
+    console.log(`Numbering: unit ${settings.unitCodePattern}, group ${settings.groupCodePattern}, step ${settings.codeStep}`);
+    console.log(`Group-wide accounts: ${await ensureGroupAccounts(m)} created`);
 
     for (const seed of BUSINESS_UNIT_SEED) {
       let unit = await m.findOne(BusinessUnit, { where: { code: seed.code }, withDeleted: true });
@@ -31,8 +36,9 @@ export async function seedLedger(dataSource: DataSource): Promise<void> {
         );
         console.log(`Created business unit: ${seed.code} ${seed.name}`);
       }
-      const created = await provisionUnitAccounts(m, unit, seed.reserves);
-      console.log(`  -> ${created.length} unit accounts created`);
+      const classIds = await defaultProvisionClassIds(m, seed.classKeys);
+      const created = await provisionUnitAccounts(m, unit, { classIds, reserveBuckets: seed.reserves });
+      console.log(`  ${seed.code}: ${created.length} unit accounts created`);
     }
   });
 }

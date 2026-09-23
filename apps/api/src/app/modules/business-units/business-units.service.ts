@@ -7,14 +7,14 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import {
-  AccountSubtype,
+  AccountClassUnitRule,
   JournalEntryKind,
   JournalEntrySource,
-  LIQUID_SUBTYPES,
 } from '@multizoo/types';
 import { businessDate, fromPaisa, toPaisa } from '@multizoo/utils';
 import { BusinessUnit } from './entities/business-unit.entity';
 import { Account } from '../accounts/entities/account.entity';
+import { AccountClass } from '../accounts/entities/account-class.entity';
 import { UserBusinessUnit } from '../users/entities/user.business-unit.entity';
 import { JournalService } from '../journal/journal.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -25,9 +25,10 @@ import {
   visibleUnitIds,
 } from '../../../common/scope/unit-scope';
 import {
-  OPENING_BALANCE_EQUITY_CODE,
-  RESERVE_BUCKET_CATALOG,
+  defaultProvisionClassIds,
+  OPENING_BALANCE_EQUITY_KEY,
   provisionUnitAccounts,
+  RESERVE_BUCKET_CATALOG,
 } from '../accounts/chart-of-accounts';
 import {
   CreateBusinessUnitDto,
@@ -46,6 +47,9 @@ export class BusinessUnitsService {
     @InjectRepository(Account)
     private readonly accountRepo: Repository<Account>,
 
+    @InjectRepository(AccountClass)
+    private readonly classRepo: Repository<AccountClass>,
+
     private readonly journalService: JournalService,
     private readonly ledgerService: LedgerService,
   ) {}
@@ -61,6 +65,7 @@ export class BusinessUnitsService {
 
     const accounts = await this.accountRepo.find({
       where: { businessUnitId: In(units.map((u) => u.id)) },
+      relations: { accountClass: true },
       order: { code: 'ASC' },
     });
 
@@ -76,21 +81,35 @@ export class BusinessUnitsService {
         createdAt: u.createdAt,
         accountCount: own.length,
         reserveBuckets: own
-          .filter((a) => a.subtype === AccountSubtype.RESERVE && a.isActive)
+          .filter((a) => a.accountClass.isReserve && a.isActive)
           .map((a) => a.name.replace(/ Reserve$/, '')),
       };
     });
   }
 
-  templates() {
-    return { reserveCatalog: RESERVE_BUCKET_CATALOG };
+  /** What the wizard offers: reserve names, and the classes a unit can own. */
+  async templates() {
+    const classes = await this.classRepo.find({ where: { isActive: true }, order: { sortOrder: 'ASC' } });
+    return {
+      reserveCatalog: RESERVE_BUCKET_CATALOG,
+      provisionableClasses: classes
+        .filter((c) => !c.isReserve && c.unitRule !== AccountClassUnitRule.GROUP_ONLY)
+        .map((c) => ({
+          id: c.id,
+          key: c.key,
+          name: c.name,
+          accountName: c.defaultAccountName || c.name,
+          isLiquid: c.isLiquid,
+          byDefault: c.provisionForNewUnits,
+        })),
+    };
   }
 
   /**
    * The "Add Business Unit" wizard (plan Part 04: "a wizard, not a
-   * migration"): the unit, its full standard account set, its reserve
-   * buckets and — optionally — its opening cash/bank/wallet balances, all in
-   * one transaction. Either everything exists afterwards or nothing does.
+   * migration"): the unit, the account set its classes call for, its
+   * reserve buckets and — optionally — opening balances, all in one
+   * transaction. Either everything exists afterwards or nothing does.
    */
   async create(dto: CreateBusinessUnitDto, user: AuthenticatedUser) {
     const code = dto.code.trim().toUpperCase();
@@ -115,7 +134,13 @@ export class BusinessUnitsService {
         }),
       );
 
-      const accounts = await provisionUnitAccounts(m, unit, dto.reserveBuckets, user.id);
+      const classIds = dto.accountClassIds ?? (await defaultProvisionClassIds(m));
+      const accounts = await provisionUnitAccounts(
+        m,
+        unit,
+        { classIds, reserveBuckets: dto.reserveBuckets },
+        user.id,
+      );
 
       // Someone who manages units but isn't all-units must still be able to
       // see the unit they just created.
@@ -125,40 +150,34 @@ export class BusinessUnitsService {
         actor = { ...user, businessUnitIds: [...user.businessUnitIds, unit.id] };
       }
 
-      const ob = dto.openingBalances;
-      if (ob) {
-        const lines: { accountId: string; debit?: string; credit?: string; memo?: string }[] = [];
+      const amounts = (dto.openingBalances?.amounts ?? []).filter((a) => toPaisa(a.amount) > 0n);
+      if (dto.openingBalances && amounts.length) {
+        const lines: { accountId: string; debit?: string; credit?: string }[] = [];
         let total = 0n;
-        const add = (subtype: AccountSubtype, amount?: string) => {
-          if (!amount || toPaisa(amount) === 0n) return;
-          const account = accounts.find((a) => a.subtype === subtype);
+        for (const { classId, amount } of amounts) {
+          const account = accounts.find((a) => a.classId === classId);
           if (!account) {
-            throw new BadRequestException(`This unit has no ${subtype.toLowerCase()} account for an opening balance.`);
+            throw new BadRequestException('An opening balance was given for a class this unit has no account in.');
           }
           lines.push({ accountId: account.id, debit: amount });
           total += toPaisa(amount);
-        };
-        add(AccountSubtype.CASH, ob.cash);
-        add(AccountSubtype.BANK, ob.bank);
-        add(AccountSubtype.WALLET, ob.wallet);
-
-        if (lines.length) {
-          const equity = await m.findOne(Account, { where: { code: OPENING_BALANCE_EQUITY_CODE } });
-          if (!equity) throw new BadRequestException('Opening Balance Equity account is missing — run the seed.');
-          lines.push({ accountId: equity.id, credit: fromPaisa(total) });
-
-          await this.journalService.post(
-            {
-              entryDate: ob.asOfDate,
-              businessUnitId: unit.id,
-              description: `Opening balances — ${unit.name}`,
-              kind: JournalEntryKind.OPENING_BALANCE,
-              lines,
-            },
-            actor,
-            { manager: m, source: JournalEntrySource.SYSTEM },
-          );
         }
+
+        const equity = await m.findOne(Account, { where: { systemKey: OPENING_BALANCE_EQUITY_KEY } });
+        if (!equity) throw new BadRequestException('Opening Balance Equity account is missing — run the seed.');
+        lines.push({ accountId: equity.id, credit: fromPaisa(total) });
+
+        await this.journalService.post(
+          {
+            entryDate: dto.openingBalances.asOfDate,
+            businessUnitId: unit.id,
+            description: `Opening balances — ${unit.name}`,
+            kind: JournalEntryKind.OPENING_BALANCE,
+            lines,
+          },
+          actor,
+          { manager: m, source: JournalEntrySource.SYSTEM },
+        );
       }
       return unit.id;
     });
@@ -182,9 +201,9 @@ export class BusinessUnitsService {
     }
 
     if (dto.isActive === false && unit.isActive) {
-      const liquid = await this.accountRepo.find({
-        where: { businessUnitId: id, subtype: In([...LIQUID_SUBTYPES]) },
-      });
+      const liquid = (
+        await this.accountRepo.find({ where: { businessUnitId: id }, relations: { accountClass: true } })
+      ).filter((a) => a.accountClass.isLiquid);
       const balances = await this.ledgerService.balancesFor(liquid, { asOf: businessDate() });
       const nonZero = liquid.filter((a) => balances.get(a.id) !== '0.00');
       if (nonZero.length) {

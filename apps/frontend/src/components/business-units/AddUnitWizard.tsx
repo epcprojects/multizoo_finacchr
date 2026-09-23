@@ -13,10 +13,11 @@ import {
   UNIT_TYPE_LABELS,
   type BusinessUnitRecord,
   type BusinessUnitType,
+  type UnitTemplates,
 } from '../../lib/api/ledger';
 import { errorMessage, formatMoney, isAmount, todayIso, toPaisa } from '../../lib/money';
 
-const STEPS = ['Details', 'Reserves', 'Opening balances'] as const;
+const STEPS = ['Details', 'Accounts', 'Opening balances'] as const;
 
 type AddUnitWizardProps = {
   isOpen: boolean;
@@ -38,8 +39,8 @@ function suggestCode(name: string) {
 
 /**
  * "Adding a business unit is a wizard, not a migration" — architecture plan
- * Part 04. Provisions cash / bank / wallet, the chosen reserve buckets, and
- * optional opening balances in one step.
+ * Part 04. Which accounts a new unit gets comes from the account classes
+ * marked "create for new units" (Accounts → Settings), adjustable here.
  */
 export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: AddUnitWizardProps) {
   const [step, setStep] = useState(0);
@@ -48,14 +49,13 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
   const [codeTouched, setCodeTouched] = useState(false);
   const [type, setType] = useState<BusinessUnitType>('RETAIL');
   const [description, setDescription] = useState('');
-  const [catalog, setCatalog] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<UnitTemplates>({ reserveCatalog: [], provisionableClasses: [] });
+  const [classIds, setClassIds] = useState<string[]>([]);
   const [copyFrom, setCopyFrom] = useState('');
   const [buckets, setBuckets] = useState<string[]>([]);
   const [customBucket, setCustomBucket] = useState('');
   const [asOfDate, setAsOfDate] = useState(todayIso());
-  const [cash, setCash] = useState('');
-  const [bank, setBank] = useState('');
-  const [wallet, setWallet] = useState('');
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,18 +71,29 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
     setBuckets([]);
     setCustomBucket('');
     setAsOfDate(todayIso());
-    setCash('');
-    setBank('');
-    setWallet('');
+    setAmounts({});
     setError(null);
     void getUnitTemplates()
-      .then((t) => setCatalog(t.reserveCatalog))
-      .catch(() => setCatalog([]));
+      .then((t) => {
+        setTemplates(t);
+        setClassIds(t.provisionableClasses.filter((c) => c.byDefault).map((c) => c.id));
+      })
+      .catch(() => undefined);
   }, [isOpen]);
 
   useEffect(() => {
     if (!codeTouched) setCode(suggestCode(name));
   }, [name, codeTouched]);
+
+  // A holding company has no till: default it to a bank account only.
+  useEffect(() => {
+    const classes = templates.provisionableClasses;
+    setClassIds(
+      type === 'HOLDING'
+        ? classes.filter((c) => c.key === 'BANK').map((c) => c.id)
+        : classes.filter((c) => c.byDefault).map((c) => c.id),
+    );
+  }, [type, templates]);
 
   useEffect(() => {
     const source = units.find((u) => u.id === copyFrom);
@@ -90,11 +101,11 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
   }, [copyFrom, units]);
 
   const isHolding = type === 'HOLDING';
-  const allBuckets = [...new Set([...catalog, ...buckets])];
+  const allBuckets = [...new Set([...templates.reserveCatalog, ...buckets])];
+  const chosen = templates.provisionableClasses.filter((c) => classIds.includes(c.id));
+  const liquidChosen = chosen.filter((c) => c.isLiquid);
 
-  function toggle(bucket: string) {
-    setBuckets((b) => (b.includes(bucket) ? b.filter((x) => x !== bucket) : [...b, bucket]));
-  }
+  const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
 
   function next() {
     setError(null);
@@ -110,10 +121,13 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
 
   async function create() {
     setError(null);
-    for (const [label, value] of [['Cash', cash], ['Bank', bank], ['Wallet', wallet]] as const) {
-      if (value && !isAmount(value)) return setError(`${label}: up to 2 decimal places.`);
-    }
-    const hasOpening = [cash, bank, wallet].some((v) => v && toPaisa(v) > 0n);
+    const opening = liquidChosen
+      .map((c) => ({ classId: c.id, amount: (amounts[c.id] ?? '').trim() }))
+      .filter((a) => a.amount);
+    const bad = opening.find((a) => !isAmount(a.amount));
+    if (bad) return setError('Opening amounts may have at most 2 decimal places.');
+    const nonZero = opening.filter((a) => toPaisa(a.amount) > 0n);
+
     setSubmitting(true);
     try {
       const unit = await createBusinessUnit({
@@ -121,15 +135,9 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
         name: name.trim(),
         type,
         description: description.trim() || undefined,
+        accountClassIds: classIds,
         reserveBuckets: isHolding ? [] : buckets,
-        openingBalances: hasOpening
-          ? {
-              asOfDate,
-              cash: isHolding ? undefined : cash || undefined,
-              bank: bank || undefined,
-              wallet: isHolding ? undefined : wallet || undefined,
-            }
-          : undefined,
+        openingBalances: nonZero.length ? { asOfDate, amounts: nonZero } : undefined,
       });
       onCreated(unit);
     } catch (err) {
@@ -140,9 +148,13 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
   }
 
   const accountsPreview = [
-    ...(isHolding ? ['Bank Account'] : ['Cash in Hand', 'Bank Account', 'Easypaisa Wallet']),
+    ...chosen.map((c) => c.accountName),
     ...(isHolding ? [] : buckets.map((b) => `${b} Reserve`)),
   ];
+  const openingTotal = liquidChosen.reduce(
+    (s, c) => s + (isAmount(amounts[c.id] ?? '') ? toPaisa(amounts[c.id]) : 0n),
+    0n,
+  );
 
   return (
     <Modal
@@ -181,7 +193,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
               required
               value={code}
               maxLength={12}
-              helperText="Prefixes every account in this unit (e.g. KIOSK-1100 Cash in Hand). It can't be changed later."
+              helperText="Used in this unit's account codes (e.g. KIOSK-1100 Cash in Hand). It can't be changed later."
               onChange={(e) => {
                 setCodeTouched(true);
                 setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
@@ -199,17 +211,44 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
         )}
 
         {step === 1 && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
+            <div>
+              <p className="mb-2 text-sm font-semibold text-gray-900">Standard accounts</p>
+              <p className="mb-3 text-xs text-gray-600">
+                Pre-ticked from the classes marked “create for new units” in Accounts → Settings.
+              </p>
+              <div className="flex flex-col gap-2">
+                {templates.provisionableClasses.map((c) => {
+                  const on = classIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setClassIds((x) => toggle(x, c.id))}
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-left hover:bg-gray-50"
+                    >
+                      {on ? <CheckedBoxIcon /> : <UncheckedBoxIcon />}
+                      <span className="text-sm text-gray-900">{c.accountName}</span>
+                      <span className="text-xs text-gray-500">{c.name}{c.isLiquid ? ' · money on hand' : ''}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {isHolding ? (
               <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-                A holding company only gets a bank account — it has no daily income to allocate into reserves.
+                A holding company has no daily income to allocate, so it gets no reserves.
               </p>
             ) : (
-              <>
-                <p className="text-sm text-gray-600">
-                  Reserves are pots of cash earmarked for a purpose — the buckets each day&apos;s income is split into.
-                  The percentages themselves are set later in the allocation rules.
-                </p>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Reserves</p>
+                  <p className="text-xs text-gray-600">
+                    Pots of cash earmarked for a purpose — the buckets each day&apos;s income is split into. The
+                    percentages are set later in the allocation rules.
+                  </p>
+                </div>
                 <Select
                   label="Start from an existing unit"
                   showSearch
@@ -228,7 +267,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
                       <button
                         key={b}
                         type="button"
-                        onClick={() => toggle(b)}
+                        onClick={() => setBuckets((x) => toggle(x, b))}
                         className={clsx(
                           'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm',
                           on ? 'border-accent bg-accent-soft text-accent' : 'border-gray-200 text-gray-700 hover:bg-gray-50',
@@ -241,13 +280,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
                   })}
                 </div>
                 <div className="flex items-end gap-2">
-                  <Input
-                    label="Add another reserve"
-                    placeholder="e.g. Party Fund"
-                    value={customBucket}
-                    maxLength={40}
-                    onChange={(e) => setCustomBucket(e.target.value)}
-                  />
+                  <Input label="Add another reserve" placeholder="e.g. Party Fund" value={customBucket} maxLength={40} onChange={(e) => setCustomBucket(e.target.value)} />
                   <Button
                     variant="secondary"
                     disabled={!customBucket.trim()}
@@ -260,7 +293,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
                     Add
                   </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
@@ -271,16 +304,25 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
               If this unit already holds money, enter it here — it&apos;s posted as an opening balance entry. Leave blank to
               start at zero.
             </p>
-            <Input label="Balances as of" type="date" value={asOfDate} max={todayIso()} onChange={(e) => setAsOfDate(e.target.value)} />
-            <div className="grid gap-4 sm:grid-cols-3">
-              {!isHolding && (
-                <Input label="Cash in hand" inputMode="decimal" placeholder="0.00" value={cash} onChange={(e) => setCash(e.target.value.replace(/[^\d.]/g, ''))} />
-              )}
-              <Input label="Bank" inputMode="decimal" placeholder="0.00" value={bank} onChange={(e) => setBank(e.target.value.replace(/[^\d.]/g, ''))} />
-              {!isHolding && (
-                <Input label="Easypaisa" inputMode="decimal" placeholder="0.00" value={wallet} onChange={(e) => setWallet(e.target.value.replace(/[^\d.]/g, ''))} />
-              )}
-            </div>
+            {liquidChosen.length ? (
+              <>
+                <Input label="Balances as of" type="date" value={asOfDate} max={todayIso()} onChange={(e) => setAsOfDate(e.target.value)} />
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {liquidChosen.map((c) => (
+                    <Input
+                      key={c.id}
+                      label={c.accountName}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={amounts[c.id] ?? ''}
+                      onChange={(e) => setAmounts((a) => ({ ...a, [c.id]: e.target.value.replace(/[^\d.]/g, '') }))}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">No money-on-hand accounts were chosen.</p>
+            )}
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
               <p className="mb-2 text-sm font-semibold text-gray-900">
                 {name} ({code}) will get {accountsPreview.length} accounts
@@ -290,13 +332,9 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
                   <li key={a}>• {a}</li>
                 ))}
               </ul>
-              {[cash, bank, wallet].some((v) => v && isAmount(v) && toPaisa(v) > 0n) && (
+              {openingTotal > 0n && (
                 <p className="mt-2 text-xs text-gray-600">
-                  Opening total{' '}
-                  {formatMoney(
-                    [cash, bank, wallet].reduce((s, v) => s + (v && isAmount(v) ? toPaisa(v) : 0n), 0n),
-                  )}{' '}
-                  against Opening Balance Equity.
+                  Opening total {formatMoney(openingTotal)} against Opening Balance Equity.
                 </p>
               )}
             </div>

@@ -5,14 +5,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import {
-  AccountSubtype,
-  AccountType,
-  JournalEntryKind,
-  LIQUID_SUBTYPES,
-} from '@multizoo/types';
+import { AccountType, JournalEntryKind } from '@multizoo/types';
 import { businessDate, fromPaisa, isIsoDate, toPaisa } from '@multizoo/utils';
 import { Account } from '../accounts/entities/account.entity';
+import { AccountClass } from '../accounts/entities/account-class.entity';
 import { BusinessUnit } from '../business-units/entities/business-unit.entity';
 import { JournalLine } from '../journal/entities/journal-line.entity';
 import { User } from '../users/entities/user.entity';
@@ -48,6 +44,9 @@ export class LedgerService {
 
     @InjectRepository(Account)
     private readonly accountRepo: Repository<Account>,
+
+    @InjectRepository(AccountClass)
+    private readonly classRepo: Repository<AccountClass>,
 
     @InjectRepository(BusinessUnit)
     private readonly unitRepo: Repository<BusinessUnit>,
@@ -93,7 +92,7 @@ export class LedgerService {
   async accountForUser(id: string, user: AuthenticatedUser): Promise<Account> {
     const account = await this.accountRepo.findOne({
       where: { id },
-      relations: { businessUnit: true, parent: true },
+      relations: { businessUnit: true, parent: true, accountClass: true },
     });
     if (!account) throw new NotFoundException('Account not found');
     if (account.businessUnitId) assertUnitAccess(user, account.businessUnitId);
@@ -226,36 +225,46 @@ export class LedgerService {
           });
     const unitIds = units.map((u) => u.id);
 
-    const accounts = unitIds.length
-      ? await this.accountRepo.find({
-          where: { businessUnitId: In(unitIds), subtype: In([...LIQUID_SUBTYPES]) },
-          order: { code: 'ASC' },
-        })
-      : [];
+    // The columns are whatever classes are configured as money on hand —
+    // Cash, Bank, Mobile wallet out of the box; "Petty Cash" if added later.
+    const liquidClasses = await this.classRepo.find({
+      where: { isLiquid: true },
+      order: { sortOrder: 'ASC', name: 'ASC' },
+    });
+    const liquidClassIds = liquidClasses.map((c) => c.id);
+
+    const accounts =
+      unitIds.length && liquidClassIds.length
+        ? await this.accountRepo.find({
+            where: { businessUnitId: In(unitIds), classId: In(liquidClassIds) },
+            order: { code: 'ASC' },
+          })
+        : [];
     const balances = await this.balancesFor(accounts, { asOf });
 
-    // Net effect of each of the day's entries on cash/bank/wallet: a
-    // transfer nets to zero; opening balances aren't "today's money".
-    const flows = unitIds.length
-      ? await this.lineRepo.manager.query(
-          `SELECT x."businessUnitId",
-                  COALESCE(SUM(GREATEST(x.net, 0)), 0)  AS inflow,
-                  COALESCE(SUM(GREATEST(-x.net, 0)), 0) AS outflow
-             FROM (
-               SELECT e.id, e."businessUnitId", SUM(l.debit - l.credit) AS net
-                 FROM journal_lines l
-                 JOIN journal_entries e ON e.id = l."entryId"
-                 JOIN accounts a ON a.id = l."accountId"
-                WHERE e."entryDate" = $1
-                  AND e.kind <> $2
-                  AND a.subtype = ANY($3)
-                  AND e."businessUnitId" = ANY($4)
-                GROUP BY e.id, e."businessUnitId"
-             ) x
-            GROUP BY x."businessUnitId"`,
-          [asOf, JournalEntryKind.OPENING_BALANCE, [...LIQUID_SUBTYPES], unitIds],
-        )
-      : [];
+    // Net effect of each of the day's entries on money on hand: a transfer
+    // nets to zero; opening balances aren't "today's money".
+    const flows =
+      unitIds.length && liquidClassIds.length
+        ? await this.lineRepo.manager.query(
+            `SELECT x."businessUnitId",
+                    COALESCE(SUM(GREATEST(x.net, 0)), 0)  AS inflow,
+                    COALESCE(SUM(GREATEST(-x.net, 0)), 0) AS outflow
+               FROM (
+                 SELECT e.id, e."businessUnitId", SUM(l.debit - l.credit) AS net
+                   FROM journal_lines l
+                   JOIN journal_entries e ON e.id = l."entryId"
+                   JOIN accounts a ON a.id = l."accountId"
+                  WHERE e."entryDate" = $1
+                    AND e.kind <> $2
+                    AND a."classId" = ANY($3)
+                    AND e."businessUnitId" = ANY($4)
+                  GROUP BY e.id, e."businessUnitId"
+               ) x
+              GROUP BY x."businessUnitId"`,
+            [asOf, JournalEntryKind.OPENING_BALANCE, liquidClassIds, unitIds],
+          )
+        : [];
     const flowByUnit = new Map<string, { inflow: string; outflow: string }>(
       flows.map((f: { businessUnitId: string; inflow: string; outflow: string }) => [
         f.businessUnitId,
@@ -263,25 +272,25 @@ export class LedgerService {
       ]),
     );
 
-    const zero = () => ({ cash: 0n, bank: 0n, wallet: 0n, inflow: 0n, outflow: 0n });
-    const grand = zero();
+    const grandByClass = new Map<string, bigint>();
+    let grandInflow = 0n;
+    let grandOutflow = 0n;
 
     const unitRows = units.map((unit) => {
-      const t = zero();
+      const byClass = new Map<string, bigint>();
       const unitAccounts = accounts
         .filter((a) => a.businessUnitId === unit.id)
         .map((a) => {
           const balance = balances.get(a.id) ?? '0.00';
-          const p = toPaisa(balance);
-          if (a.subtype === AccountSubtype.CASH) t.cash += p;
-          if (a.subtype === AccountSubtype.BANK) t.bank += p;
-          if (a.subtype === AccountSubtype.WALLET) t.wallet += p;
-          return { id: a.id, code: a.code, name: a.name, subtype: a.subtype, isActive: a.isActive, balance };
+          byClass.set(a.classId, (byClass.get(a.classId) ?? 0n) + toPaisa(balance));
+          return { id: a.id, code: a.code, name: a.name, classId: a.classId, isActive: a.isActive, balance };
         });
       const flow = flowByUnit.get(unit.id);
-      t.inflow = flow ? toPaisa(flow.inflow) : 0n;
-      t.outflow = flow ? toPaisa(flow.outflow) : 0n;
-      (Object.keys(grand) as (keyof typeof grand)[]).forEach((k) => (grand[k] += t[k]));
+      const inflow = flow ? toPaisa(flow.inflow) : 0n;
+      const outflow = flow ? toPaisa(flow.outflow) : 0n;
+      grandInflow += inflow;
+      grandOutflow += outflow;
+      byClass.forEach((v, k) => grandByClass.set(k, (grandByClass.get(k) ?? 0n) + v));
 
       return {
         id: unit.id,
@@ -290,24 +299,21 @@ export class LedgerService {
         type: unit.type,
         isActive: unit.isActive,
         accounts: unitAccounts,
-        cash: fromPaisa(t.cash),
-        bank: fromPaisa(t.bank),
-        wallet: fromPaisa(t.wallet),
-        total: fromPaisa(t.cash + t.bank + t.wallet),
-        inflow: fromPaisa(t.inflow),
-        outflow: fromPaisa(t.outflow),
+        byClass: Object.fromEntries(liquidClassIds.map((id) => [id, fromPaisa(byClass.get(id) ?? 0n)])),
+        total: fromPaisa([...byClass.values()].reduce((s, v) => s + v, 0n)),
+        inflow: fromPaisa(inflow),
+        outflow: fromPaisa(outflow),
       };
     });
 
     return {
       asOf,
+      classes: liquidClasses.map((c) => ({ id: c.id, key: c.key, name: c.name, isActive: c.isActive })),
       totals: {
-        cash: fromPaisa(grand.cash),
-        bank: fromPaisa(grand.bank),
-        wallet: fromPaisa(grand.wallet),
-        total: fromPaisa(grand.cash + grand.bank + grand.wallet),
-        inflow: fromPaisa(grand.inflow),
-        outflow: fromPaisa(grand.outflow),
+        byClass: Object.fromEntries(liquidClassIds.map((id) => [id, fromPaisa(grandByClass.get(id) ?? 0n)])),
+        total: fromPaisa([...grandByClass.values()].reduce((s, v) => s + v, 0n)),
+        inflow: fromPaisa(grandInflow),
+        outflow: fromPaisa(grandOutflow),
       },
       units: unitRows,
     };
@@ -386,8 +392,10 @@ export class LedgerService {
 
   async createReconciliation(accountId: string, dto: CreateReconciliationDto, user: AuthenticatedUser) {
     const account = await this.accountForUser(accountId, user);
-    if (!LIQUID_SUBTYPES.includes(account.subtype)) {
-      throw new BadRequestException('Only cash, bank and wallet accounts can be reconciled against a count.');
+    if (!account.accountClass.isReconcilable) {
+      throw new BadRequestException(
+        `${account.accountClass.name} accounts aren't set up for reconciliation — turn it on for the class in Accounts → Settings.`,
+      );
     }
     if (!isIsoDate(dto.asOfDate)) throw new BadRequestException('asOfDate is not a real date');
     if (dto.asOfDate > businessDate()) throw new BadRequestException('A count cannot be dated in the future.');
@@ -417,9 +425,20 @@ export class LedgerService {
       code: a.code,
       name: a.name,
       type: a.type,
-      subtype: a.subtype,
+      accountClass: a.accountClass
+        ? {
+            id: a.accountClass.id,
+            key: a.accountClass.key,
+            name: a.accountClass.name,
+            unitRule: a.accountClass.unitRule,
+            isLiquid: a.accountClass.isLiquid,
+            isReserve: a.accountClass.isReserve,
+            isReconcilable: a.accountClass.isReconcilable,
+          }
+        : null,
       isPostable: a.isPostable,
       isSystem: a.isSystem,
+      systemKey: a.systemKey,
       isActive: a.isActive,
       description: a.description,
       parentId: a.parentId,

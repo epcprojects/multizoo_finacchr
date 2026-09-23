@@ -14,9 +14,7 @@ import {
   ACCOUNT_TYPE_LABELS,
   createReconciliation,
   getAccountLedger,
-  LIQUID,
   listReconciliations,
-  SUBTYPE_LABELS,
   type AccountLedger,
   type Reconciliation,
 } from '../../../../lib/api/ledger';
@@ -57,7 +55,7 @@ export default function AccountLedgerPage() {
     try {
       const data = await getAccountLedger(id, { from: from || undefined, to: to || undefined });
       setLedger(data);
-      if (LIQUID.includes(data.account.subtype)) setRecons(await listReconciliations(id));
+      if (data.account.accountClass?.isReconcilable) setRecons(await listReconciliations(id));
     } catch (err) {
       setLoadError(errorMessage(err, 'Could not load this ledger.'));
     } finally {
@@ -89,7 +87,8 @@ export default function AccountLedgerPage() {
   }
 
   const account = ledger?.account;
-  const isLiquid = account ? LIQUID.includes(account.subtype) : false;
+  const isLiquid = Boolean(account?.accountClass?.isLiquid);
+  const isReconcilable = Boolean(account?.accountClass?.isReconcilable);
   const inLabel = isLiquid ? 'Deposit' : 'Debit';
   const outLabel = isLiquid ? 'Withdraw' : 'Credit';
 
@@ -121,7 +120,7 @@ export default function AccountLedgerPage() {
                 <Link href="/accounts" className="hover:text-accent">
                   Chart of accounts
                 </Link>{' '}
-                / {account ? `${ACCOUNT_TYPE_LABELS[account.type]} · ${SUBTYPE_LABELS[account.subtype]}` : '…'}
+                / {account ? `${ACCOUNT_TYPE_LABELS[account.type]} · ${account.accountClass?.name ?? ''}` : '…'}
               </p>
               <p className="text-lg font-semibold text-gray-900">
                 {account?.code} · {account?.name}
@@ -159,7 +158,7 @@ export default function AccountLedgerPage() {
               >
                 All time
               </Button>
-              {isLiquid && canReconcile && (
+              {isReconcilable && canReconcile && (
                 <Button onClick={() => setCountOpen(true)}>Record count</Button>
               )}
             </div>
@@ -252,7 +251,7 @@ export default function AccountLedgerPage() {
             </div>
           </div>
 
-          {isLiquid && recons.length > 0 && (
+          {isReconcilable && recons.length > 0 && (
             <div className="shrink-0 rounded-xl border border-gray-200">
               <p className="border-b border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-900">
                 Counts &amp; reconciliations

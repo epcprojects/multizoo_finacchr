@@ -18,9 +18,10 @@ import {
 import {
   ACCOUNT_TYPE_HINTS,
   ACCOUNT_TYPE_LABELS,
+  listAccountClasses,
   listAccounts,
   listBusinessUnits,
-  SUBTYPE_LABELS,
+  type AccountClassRecord,
   type AccountRecord,
   type AccountType,
   type BusinessUnitRecord,
@@ -62,6 +63,7 @@ export default function AccountsPage() {
 
   const [accounts, setAccounts] = useState<AccountRecord[]>([]);
   const [units, setUnits] = useState<BusinessUnitRecord[]>([]);
+  const [classes, setClasses] = useState<AccountClassRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [unitId, setUnitId] = useState('');
   const [search, setSearch] = useState('');
@@ -73,6 +75,9 @@ export default function AccountsPage() {
   useEffect(() => {
     void listBusinessUnits()
       .then(setUnits)
+      .catch(() => undefined);
+    void listAccountClasses(true)
+      .then(setClasses)
       .catch(() => undefined);
   }, []);
 
@@ -123,7 +128,7 @@ export default function AccountsPage() {
   }, [search]);
 
   const liquidTotal = accounts
-    .filter((a) => ['CASH', 'BANK', 'WALLET'].includes(a.subtype))
+    .filter((a) => a.accountClass?.isLiquid)
     .reduce((s, a) => s + toPaisa(a.balance), 0n);
 
   return (
@@ -180,6 +185,11 @@ export default function AccountsPage() {
                 {includeInactive ? <CheckedBoxIcon /> : <UncheckedBoxIcon />}
                 Show inactive
               </button>
+              {canManage && (
+                <Button variant="secondary" className="shrink-0 rounded-full" onClick={() => router.push('/accounts/settings')}>
+                  Settings
+                </Button>
+              )}
               {canManage && (
                 <Button
                   className="shrink-0 rounded-full"
@@ -298,7 +308,7 @@ export default function AccountsPage() {
                         <td className="w-28 px-4 py-2.5">
                           <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
                             {a.isPostable
-                              ? SUBTYPE_LABELS[a.subtype]
+                              ? (a.accountClass?.name ?? '—')
                               : 'Heading'}
                           </span>
                         </td>
@@ -342,6 +352,7 @@ export default function AccountsPage() {
         account={editing}
         accounts={accounts}
         units={units}
+        classes={classes}
         onSaved={() => {
           setFormOpen(false);
           void refresh();

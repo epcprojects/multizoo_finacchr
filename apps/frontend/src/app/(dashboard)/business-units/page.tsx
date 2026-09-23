@@ -150,16 +150,18 @@ export default function BusinessUnitsPage() {
                             </button>
                           )}
                         </div>
-                        {pos && (
+                        {pos && position && (
                           <div className="grid grid-cols-3 gap-2 rounded-xl bg-white p-3">
-                            {(['cash', 'bank', 'wallet'] as const).map((k) => (
-                              <div key={k}>
-                                <p className="text-[11px] uppercase tracking-wide text-gray-500">{k === 'wallet' ? 'Easypaisa' : k}</p>
-                                <p className="text-sm font-semibold tabular-nums text-gray-900">
-                                  {formatMoney(pos[k], { decimals: false })}
-                                </p>
-                              </div>
-                            ))}
+                            {position.classes
+                              .filter((c) => pos.accounts.some((a) => a.classId === c.id))
+                              .map((c) => (
+                                <div key={c.id} className="min-w-0">
+                                  <p className="truncate text-[11px] uppercase tracking-wide text-gray-500">{c.name}</p>
+                                  <p className="text-sm font-semibold tabular-nums text-gray-900">
+                                    {formatMoney(pos.byClass[c.id] ?? '0', { decimals: false })}
+                                  </p>
+                                </div>
+                              ))}
                           </div>
                         )}
                         <div>

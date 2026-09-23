@@ -3,10 +3,12 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { Brackets, DataSource, Repository } from 'typeorm';
+import { AccountClassUnitRule } from '@multizoo/types';
 import { businessDate, fromPaisa, toPaisa } from '@multizoo/utils';
 import { Account } from './entities/account.entity';
+import { AccountClass } from './entities/account-class.entity';
 import { BusinessUnit } from '../business-units/entities/business-unit.entity';
 import { LedgerService } from '../ledger/ledger.service';
 import type { AuthenticatedUser } from '../users/users.service';
@@ -14,24 +16,35 @@ import {
   assertUnitAccess,
   visibleUnitIds,
 } from '../../../common/scope/unit-scope';
-import {
-  GROUP_ONLY_SUBTYPES,
-  SUBTYPE_CODE_BASE,
-  SUBTYPE_TO_TYPE,
-  UNIT_OWNED_SUBTYPES,
-  subtypeCodeBandEnd,
-} from './chart-of-accounts';
+import { generateAccountCode } from './chart-of-accounts';
 import {
   CreateAccountDto,
   ListAccountsQueryDto,
   UpdateAccountDto,
 } from './dto/account.dto';
 
+/** Enforces a class's unit rule for one account. */
+export function unitRuleViolation(cls: AccountClass, hasUnit: boolean): string | null {
+  if (cls.unitRule === AccountClassUnitRule.UNIT_REQUIRED && !hasUnit) {
+    return `${cls.name} accounts must belong to a business unit.`;
+  }
+  if (cls.unitRule === AccountClassUnitRule.GROUP_ONLY && hasUnit) {
+    return `${cls.name} accounts are shared across the group — the business unit is recorded on each entry instead.`;
+  }
+  return null;
+}
+
 @Injectable()
 export class AccountsService {
   constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+
     @InjectRepository(Account)
     private readonly accountRepo: Repository<Account>,
+
+    @InjectRepository(AccountClass)
+    private readonly classRepo: Repository<AccountClass>,
 
     @InjectRepository(BusinessUnit)
     private readonly unitRepo: Repository<BusinessUnit>,
@@ -41,9 +54,9 @@ export class AccountsService {
 
   /**
    * The chart of accounts the caller can see, each with today's balance.
-   * Group headings carry the rolled-up balance of their children. For
-   * group-wide accounts the balance only counts lines in the caller's units
-   * (or the one unit filtered on).
+   * Headings carry the rolled-up balance of their children. For group-wide
+   * accounts the balance only counts lines in the caller's units (or the
+   * one unit filtered on).
    */
   async list(query: ListAccountsQueryDto, user: AuthenticatedUser) {
     const scope = visibleUnitIds(user);
@@ -53,6 +66,7 @@ export class AccountsService {
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.businessUnit', 'bu')
       .leftJoinAndSelect('a.parent', 'p')
+      .leftJoinAndSelect('a.accountClass', 'cls')
       .orderBy('a.code', 'ASC');
 
     if (query.businessUnitId) {
@@ -83,7 +97,6 @@ export class AccountsService {
       unitIds: query.businessUnitId ? [query.businessUnitId] : scope,
     });
 
-    // Roll children up into their group heading.
     const rolled = new Map<string, bigint>();
     for (const a of accounts) {
       const own = toPaisa(balances.get(a.id) ?? '0.00');
@@ -105,71 +118,89 @@ export class AccountsService {
   }
 
   async create(dto: CreateAccountDto, user: AuthenticatedUser) {
-    const type = SUBTYPE_TO_TYPE[dto.subtype];
-    let unit: BusinessUnit | null = null;
+    const cls = await this.classRepo.findOne({ where: { id: dto.classId } });
+    if (!cls || !cls.isActive) throw new BadRequestException('Account class not found or inactive');
 
-    if (UNIT_OWNED_SUBTYPES.includes(dto.subtype) && !dto.businessUnitId) {
-      throw new BadRequestException('Cash, bank, wallet and reserve accounts must belong to a business unit.');
-    }
-    if (GROUP_ONLY_SUBTYPES.includes(dto.subtype) && dto.businessUnitId) {
-      throw new BadRequestException(
-        'Income and expense accounts are shared across the group — the business unit is recorded on each transaction instead.',
-      );
-    }
+    let unit: BusinessUnit | null = null;
     if (dto.businessUnitId) {
       unit = await this.unitRepo.findOne({ where: { id: dto.businessUnitId } });
       if (!unit) throw new BadRequestException('Business unit not found');
       assertUnitAccess(user, unit.id);
     }
+    const ruleError = unitRuleViolation(cls, Boolean(unit));
+    if (ruleError) throw new BadRequestException(ruleError);
 
     let parent: Account | null = null;
     if (dto.parentId) {
       parent = await this.accountRepo.findOne({ where: { id: dto.parentId } });
-      if (!parent) throw new BadRequestException('Parent account not found');
-      if (parent.type !== type) {
-        throw new BadRequestException(`A ${type.toLowerCase()} account can't sit under a ${parent.type.toLowerCase()} heading.`);
+      if (!parent) throw new BadRequestException('Heading account not found');
+      if (parent.type !== cls.type) {
+        throw new BadRequestException(`A ${cls.type.toLowerCase()} account can't sit under a ${parent.type.toLowerCase()} heading.`);
       }
       if (parent.isPostable) {
-        throw new BadRequestException(`${parent.name} takes postings directly, so it can't be used as a group heading.`);
+        throw new BadRequestException(`${parent.name} takes entries directly, so it can't be used as a heading.`);
       }
       if ((parent.businessUnitId ?? null) !== (unit?.id ?? null)) {
         throw new BadRequestException('A sub-account must belong to the same business unit as its heading.');
       }
     }
 
-    const code = dto.code ?? (await this.nextCode(dto.subtype, unit, parent));
-    const clash = await this.accountRepo.findOne({ where: { code }, withDeleted: true });
-    if (clash) throw new ConflictException(`Account code ${code} is already in use (${clash.name}).`);
+    await this.assertNameFree(dto.name, unit?.id ?? null);
 
-    const nameClash = await this.accountRepo
-      .createQueryBuilder('a')
-      .where('UPPER(a.name) = UPPER(:name)', { name: dto.name.trim() })
-      .andWhere(unit ? 'a.businessUnitId = :unitId' : 'a.businessUnitId IS NULL', { unitId: unit?.id })
-      .getOne();
-    if (nameClash) throw new ConflictException(`An account named "${nameClash.name}" already exists here (${nameClash.code}).`);
-
-    const saved = await this.accountRepo.save(
-      this.accountRepo.create({
-        code,
-        name: dto.name.trim(),
-        type,
-        subtype: dto.subtype,
-        businessUnitId: unit?.id ?? null,
-        parentId: parent?.id ?? null,
-        isPostable: dto.isPostable ?? true,
-        isSystem: false,
-        description: dto.description?.trim() || null,
-        createdBy: user.id,
-      }),
-    );
-    return this.findOne(saved.id, user);
+    const id = await this.dataSource.transaction(async (m) => {
+      const code = dto.code?.trim().toUpperCase() || (await generateAccountCode(m, cls, unit, parent));
+      await this.assertCodeFree(code);
+      const saved = await m.save(
+        m.create(Account, {
+          code,
+          name: dto.name.trim(),
+          type: cls.type,
+          classId: cls.id,
+          businessUnitId: unit?.id ?? null,
+          parentId: parent?.id ?? null,
+          isPostable: dto.isPostable ?? true,
+          isSystem: false,
+          systemKey: null,
+          description: dto.description?.trim() || null,
+          createdBy: user.id,
+        }),
+      );
+      return saved.id;
+    });
+    return this.findOne(id, user);
   }
 
   async update(id: string, dto: UpdateAccountDto, user: AuthenticatedUser) {
     const account = await this.ledgerService.accountForUser(id, user);
 
-    if (account.isSystem && (dto.name !== undefined || dto.isActive === false)) {
-      throw new BadRequestException(`${account.name} is a system account — it can't be renamed or deactivated.`);
+    if (account.isSystem && (dto.name !== undefined || dto.isActive === false || dto.classId)) {
+      throw new BadRequestException(`${account.name} is a system account — its name, class and status are fixed.`);
+    }
+
+    if (dto.code !== undefined) {
+      const code = dto.code.trim().toUpperCase();
+      if (code !== account.code) {
+        await this.assertCodeFree(code, id);
+        account.code = code;
+      }
+    }
+
+    if (dto.name !== undefined && dto.name.trim().toUpperCase() !== account.name.toUpperCase()) {
+      await this.assertNameFree(dto.name, account.businessUnitId, id);
+    }
+
+    if (dto.classId && dto.classId !== account.classId) {
+      const cls = await this.classRepo.findOne({ where: { id: dto.classId } });
+      if (!cls || !cls.isActive) throw new BadRequestException('Account class not found or inactive');
+      if (cls.type !== account.type) {
+        throw new BadRequestException(
+          `${account.name} is in ${account.type.toLowerCase()}s; ${cls.name} is a ${cls.type.toLowerCase()} class. An account can't change bucket — create a new account and move the balance with an entry.`,
+        );
+      }
+      const ruleError = unitRuleViolation(cls, Boolean(account.businessUnitId));
+      if (ruleError) throw new BadRequestException(ruleError);
+      account.classId = cls.id;
+      account.accountClass = cls;
     }
 
     if (dto.isActive === false && account.isActive) {
@@ -194,46 +225,20 @@ export class AccountsService {
     return this.findOne(id, user);
   }
 
-  /**
-   * Next free code in the right numbering band — ZOO-1510, ZOO-1520 for a
-   * unit's reserves; 5161 under the 5100 feed heading; the next top-level
-   * slot otherwise. Steps by 10 while there's room, so gaps stay for
-   * accounts inserted later.
-   */
-  private async nextCode(subtype: Account['subtype'], unit: BusinessUnit | null, parent: Account | null) {
-    const base = SUBTYPE_CODE_BASE[subtype];
-    let prefix = '';
-    let start: number;
-    let end: number;
-
-    if (unit) {
-      prefix = `${unit.code}-`;
-      start = base;
-      end = subtypeCodeBandEnd(subtype);
-    } else if (parent && /^\d+$/.test(parent.code)) {
-      start = Number(parent.code) + 1;
-      end = Number(parent.code) + 99;
-    } else {
-      start = base;
-      end = Math.floor(base / 1000) * 1000 + 999;
+  private async assertCodeFree(code: string, exceptId?: string) {
+    const clash = await this.accountRepo.findOne({ where: { code }, withDeleted: true });
+    if (clash && clash.id !== exceptId) {
+      throw new ConflictException(`Account code ${code} is already in use (${clash.name}).`);
     }
+  }
 
-    const codes = (await this.accountRepo.find({ select: { code: true }, withDeleted: true }))
-      .map((a) => a.code)
-      .filter((c) => c.startsWith(prefix))
-      .map((c) => c.slice(prefix.length))
-      .filter((c) => /^\d+$/.test(c))
-      .map(Number);
-    const taken = new Set(codes);
-    const inBand = codes.filter((n) => n >= start && n <= end);
-
-    let next = inBand.length ? Math.max(...inBand) : start - 10;
-    next = next + 10 <= end ? next + 10 : next + 1;
-    if (next < start) next = start;
-    while (taken.has(next)) next += 1;
-    if (next > end) {
-      throw new BadRequestException('No free account codes left in this range — enter a code manually.');
-    }
-    return `${prefix}${next}`;
+  private async assertNameFree(name: string, unitId: string | null, exceptId?: string) {
+    const qb = this.accountRepo
+      .createQueryBuilder('a')
+      .where('UPPER(a.name) = UPPER(:name)', { name: name.trim() })
+      .andWhere(unitId ? 'a.businessUnitId = :unitId' : 'a.businessUnitId IS NULL', { unitId });
+    if (exceptId) qb.andWhere('a.id != :exceptId', { exceptId });
+    const clash = await qb.getOne();
+    if (clash) throw new ConflictException(`An account named "${clash.name}" already exists here (${clash.code}).`);
   }
 }
