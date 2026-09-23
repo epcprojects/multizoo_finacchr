@@ -21,8 +21,8 @@ touching a module you haven't built yet:
 Modules are built **strictly in sequence** — one is finished (built, tested,
 demoed) before the next starts. See `docs/` for a per-module status file.
 
-1. **Identity & Access** ← current
-2. Ledger foundation (business units, chart of accounts, transactions)
+1. **Identity & Access** ✅
+2. **Ledger foundation** (business units, chart of accounts, transactions) ← current
 3. Income allocation engine
 4. Employee, attendance & leave
 5. Payroll, incentives & settlement
@@ -35,9 +35,10 @@ demoed) before the next starts. See `docs/` for a per-module status file.
 ```bash
 cp .env.example .env   # fill in your local Postgres credentials — see docs/database-setup.md
 npm install
-npx nx run api:seed    # seed the four default roles + a bootstrap super-admin (first run only — prints its password once)
+npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts
 npx nx serve api        # backend on :3000 — Swagger at /api/v1/docs
 npx nx dev frontend      # frontend on :4200
+npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money)
 ```
 
 Or, on Windows, run both at once (kills anything already on 3000/4200 first,
@@ -51,14 +52,16 @@ start-dev.bat
 
 ```
 apps/
-  api/         NestJS backend — modules/{auth,users,roles}, common/{guards,decorators,email}
+  api/         NestJS backend — modules/{auth,users,roles,business-units,accounts,journal,ledger},
+               common/{guards,decorators,email,scope}
   frontend/    Next.js frontend (App Router, Tailwind v4)
 libs/
   shared/interfaces/   base-entity conventions (BaseEntity, VersionedPolicyEntity, ...)
   shared/types/        SystemRoles, SeedRoleName, Permission enums
-  shared/utils/        generateRandomToken, normalise
+  shared/utils/        generateRandomToken, normalise, BigInt paisa money helpers, business date
 docs/
   module-01-identity-access.md   status + verification steps, one file per module
+  module-02-ledger-foundation.md
   database-setup.md              local Postgres role/database setup
 start-dev.bat  Windows: kills 3000/4200, starts backend + frontend each in their own window
 ```

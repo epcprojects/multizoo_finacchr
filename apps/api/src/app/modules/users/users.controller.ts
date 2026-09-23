@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@multizoo/types';
@@ -14,6 +15,7 @@ import { UsersService, AuthenticatedUser } from './users.service';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { UpdateMyNameDto } from './dto/update-my-name.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { UpdateUserBusinessUnitsDto } from './dto/update-user-business-units.dto';
 import { RequirePermission } from '../../../common/decorators/permissions.decorator';
 import { GetUser } from '../../../common/decorators/get-user.decorator';
 
@@ -56,6 +58,16 @@ export class UsersController {
     @GetUser() user: AuthenticatedUser,
   ) {
     return this.usersService.updateRole(id, dto, user);
+  }
+
+  @Put(':id/business-units')
+  @RequirePermission({ permissions: [Permission.USERS_INVITE] })
+  updateBusinessUnits(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserBusinessUnitsDto,
+    @GetUser() user: AuthenticatedUser,
+  ) {
+    return this.usersService.updateBusinessUnits(id, dto.businessUnitIds, user);
   }
 
   @Delete(':id')

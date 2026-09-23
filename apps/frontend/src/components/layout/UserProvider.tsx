@@ -20,6 +20,7 @@ export interface CurrentUser {
   isInvitationAccepted: boolean;
   roles: string[];
   permissions: string[];
+  businessUnitIds: string[];
 }
 
 type UserContextValue = {

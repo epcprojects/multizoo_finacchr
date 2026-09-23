@@ -22,6 +22,11 @@ export const PERMISSION_CATALOG = [
   { label: 'Generate reports (own unit)', value: 'reports.generate_own_unit' },
   { label: 'Invite users', value: 'users.invite' },
   { label: 'Manage roles', value: 'roles.manage' },
+  { label: 'View ledgers & balances', value: 'ledger.view' },
+  { label: 'Access all business units', value: 'units.access_all' },
+  { label: 'Add & edit business units', value: 'business_units.manage' },
+  { label: 'Edit chart of accounts', value: 'accounts.manage' },
+  { label: 'Reverse posted entries', value: 'transactions.reverse' },
 ];
 
 const MODULE_LABELS: Record<string, string> = {
@@ -38,6 +43,9 @@ const MODULE_LABELS: Record<string, string> = {
   reports: 'Reports',
   users: 'Users',
   roles: 'Roles',
+  units: 'Business Units',
+  business_units: 'Business Units',
+  accounts: 'Chart of Accounts',
 };
 
 export type PermissionModule = {

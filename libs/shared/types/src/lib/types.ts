@@ -43,4 +43,74 @@ export enum Permission {
   REPORTS_GENERATE_OWN_UNIT = 'reports.generate_own_unit',
   USERS_INVITE = 'users.invite',
   ROLES_MANAGE = 'roles.manage',
+  // Module 2 — Ledger foundation
+  LEDGER_VIEW = 'ledger.view',
+  UNITS_ACCESS_ALL = 'units.access_all',
+  BUSINESS_UNITS_MANAGE = 'business_units.manage',
+  ACCOUNTS_MANAGE = 'accounts.manage',
+  TRANSACTIONS_REVERSE = 'transactions.reverse',
+}
+
+// ---------------------------------------------------------------------------
+// Ledger (Module 2)
+// ---------------------------------------------------------------------------
+
+export enum BusinessUnitType {
+  WILDLIFE_PARK = 'WILDLIFE_PARK',
+  FOOD_BEVERAGE = 'FOOD_BEVERAGE',
+  RETAIL = 'RETAIL',
+  ENTERTAINMENT = 'ENTERTAINMENT',
+  LIVESTOCK = 'LIVESTOCK',
+  HOLDING = 'HOLDING',
+}
+
+/** The five buckets every account belongs to — see Follow the Rupee, Part 1. */
+export enum AccountType {
+  ASSET = 'ASSET',
+  LIABILITY = 'LIABILITY',
+  EQUITY = 'EQUITY',
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
+}
+
+export enum AccountSubtype {
+  CASH = 'CASH',
+  BANK = 'BANK',
+  WALLET = 'WALLET',
+  /** Earmarked cash. Only the allocation engine (Module 3) posts to these. */
+  RESERVE = 'RESERVE',
+  RECEIVABLE = 'RECEIVABLE',
+  PAYABLE = 'PAYABLE',
+  EQUITY = 'EQUITY',
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
+}
+
+/** Subtypes that make up a unit's cash position (dashboard, transfers). */
+export const LIQUID_SUBTYPES: readonly AccountSubtype[] = [
+  AccountSubtype.CASH,
+  AccountSubtype.BANK,
+  AccountSubtype.WALLET,
+];
+
+/** Asset and expense balances grow with debits; the rest grow with credits. */
+export const DEBIT_NORMAL_TYPES: readonly AccountType[] = [
+  AccountType.ASSET,
+  AccountType.EXPENSE,
+];
+
+export enum JournalEntryKind {
+  MONEY_IN = 'MONEY_IN',
+  MONEY_OUT = 'MONEY_OUT',
+  TRANSFER = 'TRANSFER',
+  OPENING_BALANCE = 'OPENING_BALANCE',
+  GENERAL = 'GENERAL',
+  REVERSAL = 'REVERSAL',
+}
+
+/** Where an entry came from — later modules add ALLOCATION, PAYROLL, … */
+export enum JournalEntrySource {
+  MANUAL = 'MANUAL',
+  SYSTEM = 'SYSTEM',
+  IMPORT = 'IMPORT',
 }

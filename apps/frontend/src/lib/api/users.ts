@@ -9,6 +9,7 @@ export interface UserRecord {
   lastLoginAt: string | null;
   roles: string[];
   permissions: string[];
+  businessUnitIds: string[];
 }
 
 export async function listUsers(): Promise<UserRecord[]> {
@@ -20,6 +21,7 @@ export async function inviteUser(payload: {
   email: string;
   fullName: string;
   roleId: string;
+  businessUnitIds?: string[];
 }) {
   const { data } = await apiClient.post('/users/invite', payload);
   return data;
@@ -32,5 +34,10 @@ export async function updateUserRole(userId: string, roleId: string) {
 
 export async function deleteUser(userId: string) {
   const { data } = await apiClient.delete(`/users/${userId}`);
+  return data;
+}
+
+export async function updateUserBusinessUnits(userId: string, businessUnitIds: string[]) {
+  const { data } = await apiClient.put(`/users/${userId}/business-units`, { businessUnitIds });
   return data;
 }

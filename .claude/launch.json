@@ -2,10 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "api",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nx", "serve", "api"],
+      "port": 3000
+    },
+    {
       "name": "frontend",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["nx", "run", "frontend:dev"],
-      "port": 3000
+      "runtimeArgs": ["nx", "dev", "frontend", "--port=4200"],
+      "port": 4200
     }
   ]
 }

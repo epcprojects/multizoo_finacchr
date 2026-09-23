@@ -11,6 +11,9 @@ import {
   RolesIcon,
   LogoutIcon,
   MenuIcon,
+  TransactionsIcon,
+  AccountsIcon,
+  UnitsIcon,
 } from '../ui/icons';
 
 type NavItem = {
@@ -22,6 +25,24 @@ type NavItem = {
 
 const navigationItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+  {
+    href: '/transactions',
+    label: 'Entries',
+    icon: <TransactionsIcon />,
+    anyPermissions: ['ledger.view', 'transactions.create_own_unit'],
+  },
+  {
+    href: '/accounts',
+    label: 'Accounts',
+    icon: <AccountsIcon />,
+    anyPermissions: ['ledger.view'],
+  },
+  {
+    href: '/business-units',
+    label: 'Units',
+    icon: <UnitsIcon />,
+    anyPermissions: ['ledger.view', 'business_units.manage'],
+  },
   {
     href: '/users',
     label: 'Users',
@@ -101,7 +122,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto">
           {visibleNavItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <button
                 key={item.href}

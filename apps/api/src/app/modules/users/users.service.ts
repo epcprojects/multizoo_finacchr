@@ -5,10 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { generateRandomToken } from '@multizoo/utils';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user.roles.entity';
+import { UserBusinessUnit } from './entities/user.business-unit.entity';
+import { BusinessUnit } from '../business-units/entities/business-unit.entity';
 import { Role } from '../roles/entities/role.entity';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
@@ -24,6 +26,8 @@ export interface AuthenticatedUser {
   lastLoginAt: Date | null;
   roles: string[];
   permissions: string[];
+  /** Units this user is assigned to — only consulted without units.access_all. */
+  businessUnitIds: string[];
 }
 
 @Injectable()
@@ -37,6 +41,12 @@ export class UsersService {
 
     @InjectRepository(UserRole)
     private readonly userRoleRepo: Repository<UserRole>,
+
+    @InjectRepository(UserBusinessUnit)
+    private readonly userUnitRepo: Repository<UserBusinessUnit>,
+
+    @InjectRepository(BusinessUnit)
+    private readonly unitRepo: Repository<BusinessUnit>,
 
     private readonly emailService: EmailService,
   ) {}
@@ -60,6 +70,8 @@ export class UsersService {
       ),
     ];
 
+    const userUnits = await this.userUnitRepo.find({ where: { userId: user.id } });
+
     return {
       id: user.id,
       email: user.email,
@@ -69,6 +81,7 @@ export class UsersService {
       lastLoginAt: user.lastLoginAt,
       roles,
       permissions,
+      businessUnitIds: userUnits.map((uu) => uu.businessUnitId),
     };
   }
 
@@ -141,6 +154,10 @@ export class UsersService {
         assignedBy: invitedBy.id,
       }),
     );
+
+    if (dto.businessUnitIds) {
+      await this.replaceBusinessUnits(saved.id, dto.businessUnitIds, invitedBy);
+    }
 
     await this.emailService.sendInviteEmail({
       to: saved.email,
@@ -219,6 +236,40 @@ export class UsersService {
     );
 
     return this.findById(userId);
+  }
+
+  /** Replaces the set of business units a user works in. */
+  async updateBusinessUnits(
+    userId: string,
+    businessUnitIds: string[],
+    actor: AuthenticatedUser,
+  ) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    await this.replaceBusinessUnits(userId, businessUnitIds, actor);
+    return this.findById(userId);
+  }
+
+  private async replaceBusinessUnits(
+    userId: string,
+    businessUnitIds: string[],
+    actor: AuthenticatedUser,
+  ) {
+    const ids = [...new Set(businessUnitIds)];
+    if (ids.length) {
+      const found = await this.unitRepo.count({ where: { id: In(ids) } });
+      if (found !== ids.length) {
+        throw new BadRequestException('One or more business units do not exist');
+      }
+    }
+    await this.userUnitRepo.delete({ userId });
+    if (ids.length) {
+      await this.userUnitRepo.save(
+        ids.map((businessUnitId) =>
+          this.userUnitRepo.create({ userId, businessUnitId, assignedBy: actor.id }),
+        ),
+      );
+    }
   }
 
   async softDeleteUser(userId: string) {

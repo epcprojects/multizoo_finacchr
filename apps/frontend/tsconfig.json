@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "preserve",
+    "target": "es2020",
     "strict": true,
     "noEmit": true,
     "emitDeclarationOnly": false,

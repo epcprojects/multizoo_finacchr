@@ -23,6 +23,9 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.REPORTS_GENERATE,
       P.USERS_INVITE,
       P.ROLES_MANAGE,
+      P.LEDGER_VIEW,
+      P.UNITS_ACCESS_ALL,
+      P.BUSINESS_UNITS_MANAGE,
     ],
   },
   [SeedRoleName.ACCOUNTANT]: {
@@ -40,6 +43,11 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.LOANS_INITIATE,
       P.REPORTS_GENERATE,
       P.USERS_INVITE,
+      P.LEDGER_VIEW,
+      P.UNITS_ACCESS_ALL,
+      P.BUSINESS_UNITS_MANAGE,
+      P.ACCOUNTS_MANAGE,
+      P.TRANSACTIONS_REVERSE,
     ],
   },
   [SeedRoleName.BRANCH_MANAGER]: {
@@ -51,6 +59,7 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.LEAVE_APPROVE_OWN_UNIT,
       P.DISCIPLINARY_RAISE_OWN_UNIT,
       P.REPORTS_GENERATE_OWN_UNIT,
+      P.LEDGER_VIEW,
     ],
   },
   [SeedRoleName.BRANCH_STAFF]: {

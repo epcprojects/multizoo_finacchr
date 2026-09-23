@@ -8,6 +8,10 @@ import { environment } from '../../environments/environment';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { BusinessUnitsModule } from './modules/business-units/business-units.module';
+import { AccountsModule } from './modules/accounts/accounts.module';
+import { JournalModule } from './modules/journal/journal.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
@@ -30,6 +34,10 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
     AuthModule,
     UsersModule,
     RolesModule,
+    BusinessUnitsModule,
+    AccountsModule,
+    JournalModule,
+    LedgerModule,
   ],
   controllers: [AppController],
   providers: [

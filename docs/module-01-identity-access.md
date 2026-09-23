@@ -44,6 +44,12 @@ matrix, not placeholders:
 
 Claim counts confirmed by running `roles.seed.ts` against the real database — 25 total.
 
+> **Updated by Module 2:** five ledger permissions were added (`ledger.view`,
+> `units.access_all`, `business_units.manage`, `accounts.manage`,
+> `transactions.reverse`). Current counts: Partner 10, Accountant 16, Branch
+> Manager 6, Branch Staff 2, SUPER_ADMIN 23 — see
+> `module-02-ledger-foundation.md`.
+
 **Super admin bootstrap** (`database/seeds/super-admin.seed.ts`) — the answer
 to invite-only auth's chicken-and-egg problem: the first user can't be
 invited, because nobody with `USERS_INVITE` exists yet. This seed creates a

@@ -189,3 +189,45 @@ export function TrashIcon() {
     </svg>
   );
 }
+
+export function TransactionsIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path
+        d="M17.5 3.5 21.5 7.5 17.5 11.5M21.5 7.5H9M8.5 14.5 4.5 18.5 8.5 22.5M4.5 18.5H17"
+        stroke={fill}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function AccountsIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path
+        d="M5 5.5c0-1.1.9-2 2-2h12.5v17H7a2 2 0 0 0-2 2v-17Z"
+        stroke={fill}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M5 22.5a2 2 0 0 1 2-2h12.5v2H7M9.5 8.5h6M9.5 12h6" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function UnitsIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path
+        d="M3.5 22.5h19M5 22.5V10l8-5.5 8 5.5v12.5M10 22.5v-6h6v6"
+        stroke={fill}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

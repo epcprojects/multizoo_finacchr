@@ -13,10 +13,21 @@ import {
   listUsers,
   inviteUser,
   updateUserRole,
+  updateUserBusinessUnits,
   deleteUser,
   type UserRecord,
 } from '../../../lib/api/users';
 import { listRoles, type RoleRecord } from '../../../lib/api/roles';
+import { listBusinessUnits, type BusinessUnitRecord } from '../../../lib/api/ledger';
+
+/** Roles holding units.access_all see every unit — no assignment needed. */
+function grantsAllUnits(role: RoleRecord | undefined) {
+  return Boolean(
+    role &&
+      (role.normalizedName === 'SUPER_ADMIN' ||
+        role.roleClaims.some((c) => c.claimType === 'units.access_all' && c.claimValue === 'true')),
+  );
+}
 
 type RoleTone = 'blue' | 'orange' | 'purple' | 'teal';
 
@@ -76,13 +87,52 @@ function SentEmailIcon() {
   );
 }
 
+function UnitAssignment({
+  role,
+  units,
+  value,
+  onChange,
+}: {
+  role: RoleRecord | undefined;
+  units: BusinessUnitRecord[];
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  if (!role) return null;
+  if (grantsAllUnits(role)) {
+    return (
+      <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
+        {role.name} can see every business unit — no assignment needed.
+      </p>
+    );
+  }
+  return (
+    <div>
+      <Select
+        isMulti
+        label="Business units"
+        showSearch
+        placeholder="Choose the units they work in"
+        value={value}
+        onChange={onChange}
+        options={units.filter((u) => u.isActive).map((u) => ({ label: `${u.name} (${u.code})`, value: u.id }))}
+      />
+      <p className="mt-1 text-xs text-gray-600">
+        They&apos;ll only see and post to these units{value.length ? '' : ' — with none selected, they can’t post anything'}.
+      </p>
+    </div>
+  );
+}
+
 function UserCard({
   user,
+  unitCodes,
   canManage,
   onEdit,
   onDelete,
 }: {
   user: UserRecord;
+  unitCodes: string[];
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -120,6 +170,9 @@ function UserCard({
                 <span className="text-xs text-gray-500">No role assigned</span>
               )}
             </div>
+            {unitCodes.length > 0 && (
+              <p className="text-xs text-gray-600">Units: {unitCodes.join(', ')}</p>
+            )}
           </div>
         </div>
         {!user.isInvitationAccepted ? (
@@ -179,9 +232,12 @@ export default function UsersPage() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [roleId, setRoleId] = useState('');
+  const [inviteUnitIds, setInviteUnitIds] = useState<string[]>([]);
+  const [units, setUnits] = useState<BusinessUnitRecord[]>([]);
 
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [editRoleId, setEditRoleId] = useState('');
+  const [editUnitIds, setEditUnitIds] = useState<string[]>([]);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -191,9 +247,14 @@ export default function UsersPage() {
   async function refresh() {
     setLoading(true);
     try {
-      const [u, r] = await Promise.all([listUsers(), listRoles()]);
+      const [u, r, bu] = await Promise.all([
+        listUsers(),
+        listRoles(),
+        listBusinessUnits().catch(() => [] as BusinessUnitRecord[]),
+      ]);
       setUsers(u);
       setRoles(r);
+      setUnits(bu);
     } finally {
       setLoading(false);
     }
@@ -231,11 +292,13 @@ export default function UsersPage() {
     }
     setSubmitting(true);
     try {
-      await inviteUser({ email, fullName, roleId });
+      const allUnits = grantsAllUnits(roles.find((r) => r.id === roleId));
+      await inviteUser({ email, fullName, roleId, businessUnitIds: allUnits ? [] : inviteUnitIds });
       setInviteOpen(false);
       setEmail('');
       setFullName('');
       setRoleId('');
+      setInviteUnitIds([]);
       await refresh();
     } catch (err) {
       setFormError(
@@ -252,6 +315,7 @@ export default function UsersPage() {
     setEditError(null);
     const current = roles.find((r) => u.roles.includes(r.name));
     setEditRoleId(current?.id ?? '');
+    setEditUnitIds(u.businessUnitIds ?? []);
   }
 
   async function onSaveRole() {
@@ -260,6 +324,8 @@ export default function UsersPage() {
     setEditError(null);
     try {
       await updateUserRole(editingUser.id, editRoleId);
+      const allUnits = grantsAllUnits(roles.find((r) => r.id === editRoleId));
+      await updateUserBusinessUnits(editingUser.id, allUnits ? [] : editUnitIds);
       setEditingUser(null);
       await refresh();
     } catch (err) {
@@ -360,6 +426,9 @@ export default function UsersPage() {
                   <UserCard
                     key={u.id}
                     user={u}
+                    unitCodes={units
+                      .filter((bu) => (u.businessUnitIds ?? []).includes(bu.id))
+                      .map((bu) => bu.code)}
                     canManage={canInvite}
                     onEdit={() => openEdit(u)}
                     onDelete={() => setDeletingUser(u)}
@@ -415,6 +484,12 @@ export default function UsersPage() {
             onChange={setRoleId}
             options={assignableRoles.map((r) => ({ label: r.name, value: r.id }))}
           />
+          <UnitAssignment
+            role={roles.find((r) => r.id === roleId)}
+            units={units}
+            value={inviteUnitIds}
+            onChange={setInviteUnitIds}
+          />
         </div>
       </Modal>
 
@@ -442,6 +517,12 @@ export default function UsersPage() {
             value={editRoleId}
             onChange={setEditRoleId}
             options={assignableRoles.map((r) => ({ label: r.name, value: r.id }))}
+          />
+          <UnitAssignment
+            role={roles.find((r) => r.id === editRoleId)}
+            units={units}
+            value={editUnitIds}
+            onChange={setEditUnitIds}
           />
         </div>
       </Modal>
