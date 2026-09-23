@@ -193,7 +193,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
               required
               value={code}
               maxLength={12}
-              helperText="Used in this unit's account codes (e.g. KIOSK-1100 Cash in Hand). It can't be changed later."
+              helperText="Used in this unit's account codes (e.g. KIOSK-1100 Cash in Hand). Can be changed later from Edit."
               onChange={(e) => {
                 setCodeTouched(true);
                 setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));

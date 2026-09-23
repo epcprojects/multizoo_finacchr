@@ -266,9 +266,56 @@ export async function createBusinessUnit(payload: {
 
 export async function updateBusinessUnit(
   id: string,
-  payload: Partial<{ name: string; type: BusinessUnitType; description: string; isActive: boolean }>,
+  payload: Partial<{
+    name: string;
+    code: string;
+    relabelAccountCodes: boolean;
+    type: BusinessUnitType;
+    description: string;
+    isActive: boolean;
+  }>,
 ) {
   const { data } = await apiClient.patch<BusinessUnitRecord>(`/business-units/${id}`, payload);
+  return data;
+}
+
+export async function addUnitAccounts(id: string, payload: { accountClassIds?: string[]; reserveBuckets?: string[] }) {
+  const { data } = await apiClient.post<{ created: { id: string; code: string; name: string }[] }>(
+    `/business-units/${id}/accounts`,
+    payload,
+  );
+  return data;
+}
+
+export interface UnitOpeningBalances {
+  entries: { id: string; displayNo: string; entryDate: string; description: string }[];
+  asOfDate: string | null;
+  accounts: {
+    id: string;
+    code: string;
+    name: string;
+    type: AccountType;
+    className: string;
+    isLiquid: boolean;
+    amount: string;
+  }[];
+}
+
+export async function getUnitOpeningBalances(id: string) {
+  const { data } = await apiClient.get<UnitOpeningBalances>(`/business-units/${id}/opening-balances`);
+  return data;
+}
+
+export async function setUnitOpeningBalances(
+  id: string,
+  payload: {
+    asOfDate: string;
+    amounts: { accountId: string; amount: string }[];
+    replaceExisting?: boolean;
+    reason?: string;
+  },
+) {
+  const { data } = await apiClient.put<UnitOpeningBalances>(`/business-units/${id}/opening-balances`, payload);
   return data;
 }
 

@@ -4,40 +4,32 @@ import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { useUser } from '../../../components/layout/UserProvider';
 import Button from '../../../components/ui/Button';
-import Input from '../../../components/ui/Input';
-import Modal from '../../../components/ui/Modal';
-import Select from '../../../components/ui/Select';
 import PageBanner from '../../../components/ui/PageBanner';
 import AddUnitWizard from '../../../components/business-units/AddUnitWizard';
-import { CheckedBoxIcon, EditIcon, PlusIcon, UncheckedBoxIcon } from '../../../components/ui/icons';
+import EditUnitPanel from '../../../components/business-units/EditUnitPanel';
+import { EditIcon, PlusIcon } from '../../../components/ui/icons';
 import {
   getCashPosition,
   listBusinessUnits,
   UNIT_TYPE_LABELS,
-  updateBusinessUnit,
   type BusinessUnitRecord,
-  type BusinessUnitType,
   type CashPosition,
 } from '../../../lib/api/ledger';
-import { errorMessage, formatMoney } from '../../../lib/money';
+import { formatMoney } from '../../../lib/money';
 
 export default function BusinessUnitsPage() {
   const { hasPermission } = useUser();
   const canManage = hasPermission('business_units.manage');
   const canViewLedger = hasPermission('ledger.view');
+  const canManageAccounts = hasPermission('accounts.manage');
 
   const [units, setUnits] = useState<BusinessUnitRecord[]>([]);
   const [position, setPosition] = useState<CashPosition | null>(null);
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  const [editing, setEditing] = useState<BusinessUnitRecord | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editType, setEditType] = useState<BusinessUnitType>('RETAIL');
-  const [editDescription, setEditDescription] = useState('');
-  const [editActive, setEditActive] = useState(true);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = units.find((u) => u.id === editingId) ?? null;
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -56,35 +48,6 @@ export default function BusinessUnitsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  function openEdit(u: BusinessUnitRecord) {
-    setEditing(u);
-    setEditName(u.name);
-    setEditType(u.type);
-    setEditDescription(u.description ?? '');
-    setEditActive(u.isActive);
-    setEditError(null);
-  }
-
-  async function saveEdit() {
-    if (!editing) return;
-    setEditSubmitting(true);
-    setEditError(null);
-    try {
-      await updateBusinessUnit(editing.id, {
-        name: editName.trim(),
-        type: editType,
-        description: editDescription.trim(),
-        ...(editActive !== editing.isActive ? { isActive: editActive } : {}),
-      });
-      setEditing(null);
-      await refresh();
-    } catch (err) {
-      setEditError(errorMessage(err, 'Could not save the unit.'));
-    } finally {
-      setEditSubmitting(false);
-    }
-  }
 
   const activeCount = units.filter((u) => u.isActive).length;
 
@@ -143,7 +106,7 @@ export default function BusinessUnitsPage() {
                             <button
                               type="button"
                               aria-label={`Edit ${u.name}`}
-                              onClick={() => openEdit(u)}
+                              onClick={() => setEditingId(u.id)}
                               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-100"
                             >
                               <EditIcon />
@@ -196,40 +159,13 @@ export default function BusinessUnitsPage() {
         }}
       />
 
-      <Modal
-        isOpen={Boolean(editing)}
-        onClose={() => setEditing(null)}
-        title="Edit Business Unit"
-        subtitle={editing ? `${editing.code} — the code can't change` : undefined}
-        showFooter
-        onConfirm={saveEdit}
-        confirmLabel={editSubmitting ? 'Saving…' : 'Save Changes'}
-        confirmDisabled={editSubmitting || editName.trim().length < 2}
-      >
-        <div className="flex flex-col gap-4">
-          {editError && (
-            <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">{editError}</p>
-          )}
-          <Input label="Unit name" required value={editName} maxLength={100} onChange={(e) => setEditName(e.target.value)} />
-          <Select
-            label="Type of business"
-            required
-            value={editType}
-            onChange={(v) => setEditType(v as BusinessUnitType)}
-            options={(Object.keys(UNIT_TYPE_LABELS) as BusinessUnitType[]).map((t) => ({ label: UNIT_TYPE_LABELS[t], value: t }))}
-          />
-          <Input label="Description" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
-          <button type="button" onClick={() => setEditActive((v) => !v)} className="flex items-start gap-2 text-left">
-            <span className="mt-0.5">{editActive ? <CheckedBoxIcon /> : <UncheckedBoxIcon />}</span>
-            <span className="text-sm text-gray-800">
-              Active
-              <span className="block text-xs text-gray-600">
-                A unit can only be deactivated once its cash, bank and wallet are all at zero.
-              </span>
-            </span>
-          </button>
-        </div>
-      </Modal>
+      <EditUnitPanel
+        unit={editing}
+        units={units}
+        canManageAccounts={canManageAccounts}
+        onClose={() => setEditingId(null)}
+        onChanged={() => void refresh()}
+      />
     </div>
   );
 }

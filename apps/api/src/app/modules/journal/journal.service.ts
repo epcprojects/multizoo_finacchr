@@ -17,7 +17,10 @@ import { Account } from '../accounts/entities/account.entity';
 import { BusinessUnit } from '../business-units/entities/business-unit.entity';
 import { User } from '../users/entities/user.entity';
 import type { AuthenticatedUser } from '../users/users.service';
-import { assertUnitAccess, visibleUnitIds } from '../../../common/scope/unit-scope';
+import {
+  assertUnitAccess,
+  visibleUnitIds,
+} from '../../../common/scope/unit-scope';
 import { assertBalanced, swapSides, UnbalancedEntryError } from './ledger-math';
 import {
   ListJournalEntriesQueryDto,
@@ -30,7 +33,12 @@ export interface PostEntryInput {
   description: string;
   reference?: string | null;
   kind: JournalEntryKind;
-  lines: { accountId: string; debit?: string | null; credit?: string | null; memo?: string | null }[];
+  lines: {
+    accountId: string;
+    debit?: string | null;
+    credit?: string | null;
+    memo?: string | null;
+  }[];
   reversalOfId?: string | null;
 }
 
@@ -62,7 +70,11 @@ export class JournalService {
   ) {}
 
   /** Posts a balanced entry. The only way anything is ever written to the ledger. */
-  async post(input: PostEntryInput, user: AuthenticatedUser, opts: PostOptions = {}) {
+  async post(
+    input: PostEntryInput,
+    user: AuthenticatedUser,
+    opts: PostOptions = {},
+  ) {
     if (opts.manager) return this.postWithin(opts.manager, input, user, opts);
     const saved = await this.dataSource.transaction((m) =>
       this.postWithin(m, input, user, opts),
@@ -78,10 +90,14 @@ export class JournalService {
   ): Promise<JournalEntry> {
     assertUnitAccess(user, input.businessUnitId);
 
-    const unit = await m.findOne(BusinessUnit, { where: { id: input.businessUnitId } });
+    const unit = await m.findOne(BusinessUnit, {
+      where: { id: input.businessUnitId },
+    });
     if (!unit) throw new BadRequestException('Business unit not found');
     if (!unit.isActive) {
-      throw new BadRequestException(`${unit.name} is inactive — entries can't be posted to it.`);
+      throw new BadRequestException(
+        `${unit.name} is inactive — entries can't be posted to it.`,
+      );
     }
 
     if (!isIsoDate(input.entryDate)) {
@@ -94,7 +110,8 @@ export class JournalService {
     try {
       assertBalanced(input.lines);
     } catch (err) {
-      if (err instanceof UnbalancedEntryError) throw new BadRequestException(err.message);
+      if (err instanceof UnbalancedEntryError)
+        throw new BadRequestException(err.message);
       throw new BadRequestException((err as Error).message);
     }
 
@@ -107,7 +124,8 @@ export class JournalService {
 
     for (const line of input.lines) {
       const account = byId.get(line.accountId);
-      if (!account) throw new BadRequestException(`Account ${line.accountId} not found`);
+      if (!account)
+        throw new BadRequestException(`Account ${line.accountId} not found`);
       if (!account.isActive && !opts.allowInactiveAccounts) {
         throw new BadRequestException(`${account.name} is inactive.`);
       }
@@ -166,18 +184,26 @@ export class JournalService {
     const isLiquid = (id: string) =>
       (byId.get(id) as Account).accountClass.isLiquid;
     const debits = input.lines.filter((l) => l.debit && toPaisa(l.debit) > 0n);
-    const credits = input.lines.filter((l) => l.credit && toPaisa(l.credit) > 0n);
+    const credits = input.lines.filter(
+      (l) => l.credit && toPaisa(l.credit) > 0n,
+    );
 
     switch (input.kind) {
       case JournalEntryKind.MONEY_IN:
-        if (!debits.some((l) => isLiquid(l.accountId)) || credits.some((l) => isLiquid(l.accountId))) {
+        if (
+          !debits.some((l) => isLiquid(l.accountId)) ||
+          credits.some((l) => isLiquid(l.accountId))
+        ) {
           throw new BadRequestException(
             'Money in must be received into a cash, bank or wallet account from a non-cash account (e.g. a sales account).',
           );
         }
         break;
       case JournalEntryKind.MONEY_OUT:
-        if (!credits.some((l) => isLiquid(l.accountId)) || debits.some((l) => isLiquid(l.accountId))) {
+        if (
+          !credits.some((l) => isLiquid(l.accountId)) ||
+          debits.some((l) => isLiquid(l.accountId))
+        ) {
           throw new BadRequestException(
             'Money out must be paid from a cash, bank or wallet account to a non-cash account (e.g. an expense).',
           );
@@ -185,12 +211,21 @@ export class JournalService {
         break;
       case JournalEntryKind.TRANSFER:
         if (!input.lines.every((l) => isLiquid(l.accountId))) {
-          throw new BadRequestException('A transfer can only move money between cash, bank and wallet accounts.');
+          throw new BadRequestException(
+            'A transfer can only move money between cash, bank and wallet accounts.',
+          );
         }
         break;
       case JournalEntryKind.OPENING_BALANCE:
-        if (!input.lines.some((l) => (byId.get(l.accountId) as Account).type === AccountType.EQUITY)) {
-          throw new BadRequestException('An opening balance must be offset against Opening Balance Equity.');
+        if (
+          !input.lines.some(
+            (l) =>
+              (byId.get(l.accountId) as Account).type === AccountType.EQUITY,
+          )
+        ) {
+          throw new BadRequestException(
+            'An opening balance must be offset against Opening Balance Equity.',
+          );
         }
         break;
       default:
@@ -198,58 +233,87 @@ export class JournalService {
     }
   }
 
-  async reverse(id: string, dto: ReverseJournalEntryDto, user: AuthenticatedUser) {
-    const reversalId = await this.dataSource.transaction(async (m) => {
-      // Row lock: two people clicking "Reverse" at once must not both succeed.
-      const original = await m.findOne(JournalEntry, {
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!original) throw new NotFoundException('Entry not found');
-      assertUnitAccess(user, original.businessUnitId);
-
-      if (original.kind === JournalEntryKind.REVERSAL) {
-        throw new BadRequestException(
-          'A reversal cannot itself be reversed — post a new, correct entry instead.',
-        );
-      }
-      if (original.reversedById) {
-        throw new BadRequestException(`${formatEntryNo(original.entryNo)} has already been reversed.`);
-      }
-
-      const entryDate = dto.entryDate ?? businessDate();
-      if (entryDate < original.entryDate) {
-        throw new BadRequestException('A reversal cannot be dated before the entry it reverses.');
-      }
-
-      const lines = await m.find(JournalLine, { where: { entryId: id }, order: { lineNo: 'ASC' } });
-      const reason = dto.reason?.trim();
-
-      const reversal = await this.postWithin(
-        m,
-        {
-          entryDate,
-          businessUnitId: original.businessUnitId,
-          description: `Reversal of ${formatEntryNo(original.entryNo)}${reason ? ` — ${reason}` : ''}`,
-          reference: original.reference,
-          kind: JournalEntryKind.REVERSAL,
-          reversalOfId: original.id,
-          lines: swapSides(
-            lines.map((l) => ({ accountId: l.accountId, debit: l.debit, credit: l.credit, memo: l.memo })),
-          ),
-        },
-        user,
-        { allowReserve: true, allowInactiveAccounts: true, source: original.source },
-      );
-
-      await m.update(JournalEntry, original.id, {
-        reversedById: reversal.id,
-        updatedBy: user.id,
-      });
-      return reversal.id;
-    });
-
+  async reverse(
+    id: string,
+    dto: ReverseJournalEntryDto,
+    user: AuthenticatedUser,
+  ) {
+    const reversalId = await this.dataSource.transaction((m) =>
+      this.reverseWithin(m, id, dto, user),
+    );
     return this.findOne(reversalId, user);
+  }
+
+  /** Reverses an entry inside a caller's transaction; returns the reversal's id. */
+  async reverseWithin(
+    m: EntityManager,
+    id: string,
+    dto: ReverseJournalEntryDto,
+    user: AuthenticatedUser,
+  ): Promise<string> {
+    // Row lock: two people clicking "Reverse" at once must not both succeed.
+    const original = await m.findOne(JournalEntry, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!original) throw new NotFoundException('Entry not found');
+    assertUnitAccess(user, original.businessUnitId);
+
+    if (original.kind === JournalEntryKind.REVERSAL) {
+      throw new BadRequestException(
+        'A reversal cannot itself be reversed — post a new, correct entry instead.',
+      );
+    }
+    if (original.reversedById) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} has already been reversed.`,
+      );
+    }
+
+    const entryDate = dto.entryDate ?? businessDate();
+    if (entryDate < original.entryDate) {
+      throw new BadRequestException(
+        'A reversal cannot be dated before the entry it reverses.',
+      );
+    }
+
+    const lines = await m.find(JournalLine, {
+      where: { entryId: id },
+      order: { lineNo: 'ASC' },
+    });
+    const reason = dto.reason?.trim();
+
+    const reversal = await this.postWithin(
+      m,
+      {
+        entryDate,
+        businessUnitId: original.businessUnitId,
+        description: `Reversal of ${formatEntryNo(original.entryNo)}${reason ? ` — ${reason}` : ''}`,
+        reference: original.reference,
+        kind: JournalEntryKind.REVERSAL,
+        reversalOfId: original.id,
+        lines: swapSides(
+          lines.map((l) => ({
+            accountId: l.accountId,
+            debit: l.debit,
+            credit: l.credit,
+            memo: l.memo,
+          })),
+        ),
+      },
+      user,
+      {
+        allowReserve: true,
+        allowInactiveAccounts: true,
+        source: original.source,
+      },
+    );
+
+    await m.update(JournalEntry, original.id, {
+      reversedById: reversal.id,
+      updatedBy: user.id,
+    });
+    return reversal.id;
   }
 
   async findOne(id: string, user: AuthenticatedUser) {
@@ -267,7 +331,11 @@ export class JournalService {
 
     const [shaped] = await this.shape([entry]);
     const related = await this.entryRepo.find({
-      where: { id: In([entry.reversalOfId, entry.reversedById].filter(Boolean) as string[]) },
+      where: {
+        id: In(
+          [entry.reversalOfId, entry.reversedById].filter(Boolean) as string[],
+        ),
+      },
     });
     const noOf = (rid: string | null) => {
       const r = related.find((x) => x.id === rid);
@@ -300,7 +368,9 @@ export class JournalService {
       qb.andWhere('e.businessUnitId IN (:...scope)', { scope });
     }
     if (query.businessUnitId) {
-      qb.andWhere('e.businessUnitId = :unitId', { unitId: query.businessUnitId });
+      qb.andWhere('e.businessUnitId = :unitId', {
+        unitId: query.businessUnitId,
+      });
     }
     if (query.from) qb.andWhere('e.entryDate >= :from', { from: query.from });
     if (query.to) qb.andWhere('e.entryDate <= :to', { to: query.to });
@@ -336,9 +406,14 @@ export class JournalService {
 
   /** Flattens an entry for the API: display number, total, author name. */
   private async shape(entries: JournalEntry[]) {
-    const authorIds = [...new Set(entries.map((e) => e.createdBy).filter(Boolean) as string[])];
+    const authorIds = [
+      ...new Set(entries.map((e) => e.createdBy).filter(Boolean) as string[]),
+    ];
     const authors = authorIds.length
-      ? await this.userRepo.find({ where: { id: In(authorIds) }, withDeleted: true })
+      ? await this.userRepo.find({
+          where: { id: In(authorIds) },
+          withDeleted: true,
+        })
       : [];
     const nameOf = new Map(authors.map((u) => [u.id, u.fullName]));
 
@@ -354,7 +429,11 @@ export class JournalService {
         kind: e.kind,
         source: e.source,
         businessUnit: e.businessUnit
-          ? { id: e.businessUnit.id, code: e.businessUnit.code, name: e.businessUnit.name }
+          ? {
+              id: e.businessUnit.id,
+              code: e.businessUnit.code,
+              name: e.businessUnit.name,
+            }
           : null,
         amount: fromPaisa(lines.reduce((sum, l) => sum + toPaisa(l.debit), 0n)),
         reversalOfId: e.reversalOfId,

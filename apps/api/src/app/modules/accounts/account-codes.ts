@@ -53,6 +53,17 @@ export function parseNumber(pattern: string, code: string, unitCode?: string | n
 }
 
 /**
+ * Swaps a unit's short code inside an account code when the unit is
+ * renamed: JOYLAND-1100 → JL-1100, 1100.JOYLAND → 1100.JL. Matches the old
+ * code only as a whole segment, so CAFE never rewrites "CAFETERIA-1100".
+ * Pattern-independent on purpose — older codes may predate a pattern change.
+ */
+export function relabelUnitCode(code: string, oldUnit: string, newUnit: string): string {
+  const escaped = oldUnit.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+  return code.replace(new RegExp(`(^|[^A-Z0-9])${escaped}(?=$|[^A-Z0-9])`), `$1${newUnit}`);
+}
+
+/**
  * Next free number in [start, end]. Empty range → start. Otherwise the
  * highest used number + step when that still fits (leaving gaps for
  * accounts inserted later), else + 1. Never returns a taken number.

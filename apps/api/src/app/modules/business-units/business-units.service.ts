@@ -5,12 +5,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   AccountClassUnitRule,
+  AccountType,
   JournalEntryKind,
   JournalEntrySource,
 } from '@multizoo/types';
+import { JournalEntry } from '../journal/entities/journal-entry.entity';
+import { formatEntryNo } from '../journal/journal.service';
+import { toNormalBalance } from '../journal/ledger-math';
+import { relabelUnitCode } from '../accounts/account-codes';
 import { businessDate, fromPaisa, toPaisa } from '@multizoo/utils';
 import { BusinessUnit } from './entities/business-unit.entity';
 import { Account } from '../accounts/entities/account.entity';
@@ -31,7 +36,9 @@ import {
   RESERVE_BUCKET_CATALOG,
 } from '../accounts/chart-of-accounts';
 import {
+  AddUnitAccountsDto,
   CreateBusinessUnitDto,
+  SetOpeningBalancesDto,
   UpdateBusinessUnitDto,
 } from './dto/business-unit.dto';
 
@@ -191,6 +198,32 @@ export class BusinessUnitsService {
     if (!unit) throw new NotFoundException('Business unit not found');
     assertUnitAccess(user, id);
 
+    // Account codes are labels (entries reference ids), so a unit's short
+    // code can change; optionally its account codes follow.
+    const newCode = dto.code?.trim().toUpperCase();
+    if (newCode && newCode !== unit.code) {
+      const clash = await this.unitRepo.findOne({ where: { code: newCode }, withDeleted: true });
+      if (clash) throw new ConflictException(`Code ${newCode} is already used by ${clash.name}.`);
+      await this.dataSource.transaction(async (m) => {
+        if (dto.relabelAccountCodes) {
+          const own = await m.find(Account, { where: { businessUnitId: id }, withDeleted: true });
+          for (const account of own) {
+            const relabelled = relabelUnitCode(account.code, unit.code, newCode);
+            if (relabelled === account.code) continue;
+            const taken = await m.findOne(Account, { where: { code: relabelled }, withDeleted: true });
+            if (taken && taken.id !== account.id) {
+              throw new ConflictException(
+                `Can't re-letter ${account.code}: ${relabelled} is already used by ${taken.name}. Change the code without re-lettering, or free that code first.`,
+              );
+            }
+            await m.update(Account, account.id, { code: relabelled, updatedBy: user.id });
+          }
+        }
+        await m.update(BusinessUnit, id, { code: newCode, updatedBy: user.id });
+      });
+      unit.code = newCode;
+    }
+
     if (dto.name && dto.name.trim().toUpperCase() !== unit.name.toUpperCase()) {
       const clash = await this.unitRepo
         .createQueryBuilder('u')
@@ -221,5 +254,156 @@ export class BusinessUnitsService {
     await this.unitRepo.save(unit);
 
     return (await this.list(user)).find((u) => u.id === id);
+  }
+
+  private async unitForUser(id: string, user: AuthenticatedUser) {
+    const unit = await this.unitRepo.findOne({ where: { id } });
+    if (!unit) throw new NotFoundException('Business unit not found');
+    assertUnitAccess(user, id);
+    return unit;
+  }
+
+  /** Adds standard accounts / reserve buckets to an existing unit (same rules as the wizard). */
+  async addAccounts(id: string, dto: AddUnitAccountsDto, user: AuthenticatedUser) {
+    const unit = await this.unitForUser(id, user);
+    if (!dto.accountClassIds?.length && !dto.reserveBuckets?.length) {
+      throw new BadRequestException('Choose at least one account or reserve to add.');
+    }
+    const created = await this.dataSource.transaction((m) =>
+      provisionUnitAccounts(
+        m,
+        unit,
+        { classIds: dto.accountClassIds ?? [], reserveBuckets: dto.reserveBuckets ?? [] },
+        user.id,
+      ),
+    );
+    return { created: created.map((a) => ({ id: a.id, code: a.code, name: a.name })) };
+  }
+
+  /** Accounts that can carry an opening balance: the unit's own postable, non-reserve assets and liabilities. */
+  private async openingEligible(m: EntityManager, unitId: string) {
+    return (
+      await m.find(Account, {
+        where: { businessUnitId: unitId, isActive: true, isPostable: true },
+        relations: { accountClass: true },
+        order: { code: 'ASC' },
+      })
+    ).filter(
+      (a) =>
+        !a.accountClass.isReserve && (a.type === AccountType.ASSET || a.type === AccountType.LIABILITY),
+    );
+  }
+
+  private async activeOpeningEntries(m: EntityManager, unitId: string) {
+    return m.find(JournalEntry, {
+      where: { businessUnitId: unitId, kind: JournalEntryKind.OPENING_BALANCE, reversedById: IsNull() },
+      relations: { lines: true },
+      order: { entryDate: 'ASC', entryNo: 'ASC' },
+    });
+  }
+
+  /** The unit's current opening balances, per account, and the entries behind them. */
+  async getOpeningBalances(id: string, user: AuthenticatedUser) {
+    await this.unitForUser(id, user);
+    const m = this.dataSource.manager;
+    const [accounts, entries] = await Promise.all([this.openingEligible(m, id), this.activeOpeningEntries(m, id)]);
+
+    const raw = new Map<string, bigint>();
+    for (const e of entries) {
+      for (const l of e.lines) raw.set(l.accountId, (raw.get(l.accountId) ?? 0n) + toPaisa(l.debit) - toPaisa(l.credit));
+    }
+
+    return {
+      entries: entries.map((e) => ({
+        id: e.id,
+        displayNo: formatEntryNo(e.entryNo),
+        entryDate: e.entryDate,
+        description: e.description,
+      })),
+      asOfDate: entries.length ? entries[entries.length - 1].entryDate : null,
+      accounts: accounts.map((a) => ({
+        id: a.id,
+        code: a.code,
+        name: a.name,
+        type: a.type,
+        className: a.accountClass.name,
+        isLiquid: a.accountClass.isLiquid,
+        amount: fromPaisa(toNormalBalance(raw.get(a.id) ?? 0n, a.type)),
+      })),
+    };
+  }
+
+  /**
+   * Posts — or corrects — a unit's opening balances. Correcting reverses
+   * the existing opening entry (dated as the original, so the history reads
+   * cleanly) and posts the new one, in one transaction. Nothing posted is
+   * ever edited.
+   */
+  async setOpeningBalances(id: string, dto: SetOpeningBalancesDto, user: AuthenticatedUser) {
+    const unit = await this.unitForUser(id, user);
+
+    await this.dataSource.transaction(async (m) => {
+      const existing = await this.activeOpeningEntries(m, id);
+      if (existing.length && !dto.replaceExisting) {
+        throw new ConflictException(
+          `${unit.name} already has an opening balance (${existing.map((e) => formatEntryNo(e.entryNo)).join(', ')}). Use "Correct opening balance" to replace it.`,
+        );
+      }
+
+      const eligible = new Map((await this.openingEligible(m, id)).map((a) => [a.id, a]));
+      const lines: { accountId: string; debit?: string; credit?: string }[] = [];
+      let net = 0n; // Σ debits − Σ credits on the unit's accounts
+      const seen = new Set<string>();
+      for (const { accountId, amount } of dto.amounts) {
+        const account = eligible.get(accountId);
+        if (!account) throw new BadRequestException(`That account can't take an opening balance for ${unit.name}.`);
+        if (seen.has(accountId)) throw new BadRequestException(`${account.name} is listed twice.`);
+        seen.add(accountId);
+        const p = toPaisa(amount);
+        if (p === 0n) continue;
+        // Assets open with a debit; liabilities with a credit.
+        if (account.type === AccountType.ASSET) {
+          lines.push({ accountId, debit: fromPaisa(p) });
+          net += p;
+        } else {
+          lines.push({ accountId, credit: fromPaisa(p) });
+          net -= p;
+        }
+      }
+
+      if (!lines.length && !existing.length) {
+        throw new BadRequestException('Enter at least one opening amount.');
+      }
+
+      for (const entry of existing) {
+        await this.journalService.reverseWithin(
+          m,
+          entry.id,
+          { entryDate: entry.entryDate, reason: dto.reason?.trim() || 'Opening balance corrected' },
+          user,
+        );
+      }
+
+      if (lines.length) {
+        if (net !== 0n) {
+          const equity = await m.findOne(Account, { where: { systemKey: OPENING_BALANCE_EQUITY_KEY } });
+          if (!equity) throw new BadRequestException('Opening Balance Equity account is missing — run the seed.');
+          lines.push(net > 0n ? { accountId: equity.id, credit: fromPaisa(net) } : { accountId: equity.id, debit: fromPaisa(-net) });
+        }
+        await this.journalService.post(
+          {
+            entryDate: dto.asOfDate,
+            businessUnitId: id,
+            description: `Opening balances — ${unit.name}`,
+            kind: JournalEntryKind.OPENING_BALANCE,
+            lines,
+          },
+          user,
+          { manager: m, source: JournalEntrySource.MANUAL },
+        );
+      }
+    });
+
+    return this.getOpeningBalances(id, user);
   }
 }

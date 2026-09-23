@@ -224,6 +224,25 @@ Everything beneath them is data the Accountant (`accounts.manage`) edits:
 - **System accounts** are found by `systemKey` (e.g.
   `OPENING_BALANCE_EQUITY`), never by code, since codes are now editable.
 
+## Editing a business unit
+
+Edit uses the same three parts as the Add wizard:
+
+- **Details**: name, type, description and active flag. The **short code
+  is editable**, because account codes are only labels. An optional
+  "re-letter" swaps the old code for the new one in the unit's existing
+  account codes (`relabelUnitCode`, whole-segment match: `JOYLAND-1100` →
+  `JL-1100`, but `CAFETERIA-…` is untouched).
+- **Accounts**: the unit's accounts with balances. You can add standard
+  accounts it lacks and reserve buckets (`POST /business-units/:id/accounts`,
+  same rules as the wizard). With `accounts.manage` you can also add any
+  other account or edit one.
+- **Opening balances**: `GET`/`PUT /business-units/:id/opening-balances`.
+  Posting a second opening balance is refused (409). *Correct opening
+  balance* reverses the existing entry, dated as the original and with the
+  reason, and posts the corrected one in a single transaction. The change
+  stays visible in the ledger and the trial balance still balances.
+
 ## Where things live
 
 ```

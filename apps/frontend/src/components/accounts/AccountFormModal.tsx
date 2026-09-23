@@ -23,6 +23,8 @@ type AccountFormModalProps = {
   accounts: AccountRecord[];
   classes: AccountClassRecord[];
   units: BusinessUnitRecord[];
+  /** Pre-selects the unit for a new account (e.g. from the unit's edit panel). */
+  defaultUnitId?: string;
 };
 
 /**
@@ -38,6 +40,7 @@ export default function AccountFormModal({
   accounts,
   classes,
   units,
+  defaultUnitId,
 }: AccountFormModalProps) {
   const editing = Boolean(account);
   const [name, setName] = useState('');
@@ -55,14 +58,14 @@ export default function AccountFormModal({
     if (!isOpen) return;
     setName(account?.name ?? '');
     setClassId(account?.accountClass?.id ?? '');
-    setBusinessUnitId(account?.businessUnit?.id ?? '');
+    setBusinessUnitId(account?.businessUnit?.id ?? defaultUnitId ?? '');
     setParentId(account?.parentId ?? '');
     setCode(account?.code ?? '');
     setIsHeading(account ? !account.isPostable : false);
     setDescription(account?.description ?? '');
     setIsActive(account?.isActive ?? true);
     setError(null);
-  }, [isOpen, account]);
+  }, [isOpen, account, defaultUnitId]);
 
   const cls = classes.find((c) => c.id === classId);
   const needsUnit = cls?.unitRule === 'UNIT_REQUIRED';

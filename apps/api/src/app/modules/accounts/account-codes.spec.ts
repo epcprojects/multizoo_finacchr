@@ -1,5 +1,5 @@
 import { AccountClassUnitRule, AccountType } from '@multizoo/types';
-import { buildCode, nextNumber, parseNumber, validatePattern } from './account-codes';
+import { buildCode, nextNumber, parseNumber, relabelUnitCode, validatePattern } from './account-codes';
 import { classRuleViolation, keyFromName } from './account-classes.service';
 
 describe('code patterns', () => {
@@ -32,6 +32,19 @@ describe('code patterns', () => {
     expect(validatePattern('{UNIT}', { requireUnit: true })).toMatch(/\{NUM\} exactly once/);
     expect(validatePattern('{NUM}-{NUM}', { requireUnit: false })).toMatch(/exactly once/);
     expect(validatePattern('{NUM} x', { requireUnit: false })).toMatch(/only A–Z/);
+  });
+});
+
+describe('relabelUnitCode', () => {
+  it('swaps the unit segment in any layout', () => {
+    expect(relabelUnitCode('JOYLAND-1100', 'JOYLAND', 'JL')).toBe('JL-1100');
+    expect(relabelUnitCode('1100.JOYLAND', 'JOYLAND', 'JL')).toBe('1100.JL');
+    expect(relabelUnitCode('GL/JOYLAND/1510', 'JOYLAND', 'JL')).toBe('GL/JL/1510');
+  });
+
+  it('leaves codes that only contain the old code as part of a word', () => {
+    expect(relabelUnitCode('CAFETERIA-1100', 'CAFE', 'PC')).toBe('CAFETERIA-1100');
+    expect(relabelUnitCode('5110', 'CAFE', 'PC')).toBe('5110');
   });
 });
 

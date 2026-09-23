@@ -6,12 +6,15 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@multizoo/types';
 import { BusinessUnitsService } from './business-units.service';
 import {
+  AddUnitAccountsDto,
   CreateBusinessUnitDto,
+  SetOpeningBalancesDto,
   UpdateBusinessUnitDto,
 } from './dto/business-unit.dto';
 import { RequirePermission } from '../../../common/decorators/permissions.decorator';
@@ -50,5 +53,31 @@ export class BusinessUnitsController {
     @GetUser() user: AuthenticatedUser,
   ) {
     return this.unitsService.update(id, dto, user);
+  }
+
+  @Post(':id/accounts')
+  @RequirePermission({ permissions: [Permission.BUSINESS_UNITS_MANAGE] })
+  addAccounts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddUnitAccountsDto,
+    @GetUser() user: AuthenticatedUser,
+  ) {
+    return this.unitsService.addAccounts(id, dto, user);
+  }
+
+  @Get(':id/opening-balances')
+  @RequirePermission({ permissions: [Permission.BUSINESS_UNITS_MANAGE, Permission.LEDGER_VIEW] })
+  openingBalances(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: AuthenticatedUser) {
+    return this.unitsService.getOpeningBalances(id, user);
+  }
+
+  @Put(':id/opening-balances')
+  @RequirePermission({ permissions: [Permission.BUSINESS_UNITS_MANAGE] })
+  setOpeningBalances(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetOpeningBalancesDto,
+    @GetUser() user: AuthenticatedUser,
+  ) {
+    return this.unitsService.setOpeningBalances(id, dto, user);
   }
 }
