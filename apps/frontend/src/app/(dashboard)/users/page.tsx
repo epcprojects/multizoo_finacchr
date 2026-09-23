@@ -206,6 +206,11 @@ export default function UsersPage() {
   const activeUsers = users.filter((u) => u.isActive).length;
   const pendingInvites = users.filter((u) => !u.isInvitationAccepted).length;
 
+  const assignableRoles = useMemo(
+    () => roles.filter((r) => r.normalizedName !== 'SUPER_ADMIN'),
+    [roles],
+  );
+
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
     return users.filter((u) => {
@@ -316,9 +321,10 @@ export default function UsersPage() {
               <div className="w-full xl:w-55">
                 <Select
                   placeholder="All Roles"
+                  showSearch
                   value={roleFilter}
                   onChange={setRoleFilter}
-                  options={roles.map((r) => ({ label: r.name, value: r.name }))}
+                  options={assignableRoles.map((r) => ({ label: r.name, value: r.name }))}
                 />
               </div>
 
@@ -372,11 +378,11 @@ export default function UsersPage() {
       <Modal
         isOpen={inviteOpen}
         onClose={() => setInviteOpen(false)}
-        title="Invite a user"
+        title="Add User"
         subtitle="They'll receive an email with a 48-hour link to set their password."
         showFooter
         onConfirm={onInvite}
-        confirmLabel={submitting ? 'Sending…' : 'Send invite'}
+        confirmLabel={submitting ? 'Creating...' : 'Create User'}
         confirmDisabled={submitting}
       >
         <div className="flex flex-col gap-4">
@@ -386,8 +392,9 @@ export default function UsersPage() {
             </p>
           )}
           <Input
-            label="Full name"
+            label="Full Name"
             required
+            placeholder="Enter full name"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
           />
@@ -395,16 +402,18 @@ export default function UsersPage() {
             label="Email"
             type="email"
             required
+            placeholder="Enter email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <Select
             label="Role"
             required
+            showSearch
             placeholder="Choose a role"
             value={roleId}
             onChange={setRoleId}
-            options={roles.map((r) => ({ label: r.name, value: r.id }))}
+            options={assignableRoles.map((r) => ({ label: r.name, value: r.id }))}
           />
         </div>
       </Modal>
@@ -412,11 +421,11 @@ export default function UsersPage() {
       <Modal
         isOpen={Boolean(editingUser)}
         onClose={() => setEditingUser(null)}
-        title={`Edit ${editingUser?.fullName ?? ''}`}
-        subtitle="Change this user's role."
+        title="Edit User"
+        subtitle={editingUser?.fullName}
         showFooter
         onConfirm={onSaveRole}
-        confirmLabel={editSubmitting ? 'Saving…' : 'Save'}
+        confirmLabel={editSubmitting ? 'Saving...' : 'Save Changes'}
         confirmDisabled={editSubmitting || !editRoleId}
       >
         <div className="flex flex-col gap-4">
@@ -428,10 +437,11 @@ export default function UsersPage() {
           <Select
             label="Role"
             required
+            showSearch
             placeholder="Choose a role"
             value={editRoleId}
             onChange={setEditRoleId}
-            options={roles.map((r) => ({ label: r.name, value: r.id }))}
+            options={assignableRoles.map((r) => ({ label: r.name, value: r.id }))}
           />
         </div>
       </Modal>
@@ -442,9 +452,15 @@ export default function UsersPage() {
         onConfirm={onDelete}
         variant="danger"
         isSubmitting={deleteSubmitting}
-        title="Remove user"
-        message={`Are you sure you want to remove ${deletingUser?.fullName ?? 'this user'}? They will lose access immediately.`}
-        confirmLabel="Remove"
+        title="Delete Account?"
+        message={
+          <>
+            Are you sure you want to Delete{' '}
+            <span className="font-semibold">“{deletingUser?.fullName ?? 'this user'}”</span>? This
+            action cannot be undone.
+          </>
+        }
+        confirmLabel="Yes, Delete"
       />
     </div>
   );

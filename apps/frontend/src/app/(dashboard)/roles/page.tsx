@@ -12,30 +12,37 @@ import {
 import { useUser } from '../../../components/layout/UserProvider';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
-import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 import PageBanner from '../../../components/ui/PageBanner';
-import { PlusIcon, EyeIcon, SearchIcon } from '../../../components/ui/icons';
-import { listRoles, createRole, type RoleRecord } from '../../../lib/api/roles';
+import RoleFormModal, { type RoleFormValues } from '../../../components/roles/RoleFormModal';
+import { PlusIcon, EyeIcon, EditIcon, TrashIcon, SearchIcon } from '../../../components/ui/icons';
+import {
+  listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+  type RoleRecord,
+} from '../../../lib/api/roles';
 import { PERMISSION_CATALOG } from '../../../lib/permission-catalog';
+
+const PROTECTED_ROLES = new Set(['SUPER_ADMIN']);
 
 function labelFor(value: string) {
   return PERMISSION_CATALOG.find((p) => p.value === value)?.label ?? value;
 }
 
 export default function RolesPage() {
-  const { hasPermission } = useUser();
+  const { hasPermission, user } = useUser();
   const canManage = hasPermission('roles.manage');
   const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [claimsRole, setClaimsRole] = useState<RoleRecord | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleRecord | null>(null);
+  const [deletingRole, setDeletingRole] = useState<RoleRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [permissions, setPermissions] = useState<string[]>([]);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -64,27 +71,50 @@ export default function RolesPage() {
     );
   }, [roles, search]);
 
-  async function onCreate() {
-    setFormError(null);
-    if (!name || permissions.length === 0) {
-      setFormError('Give the role a name and at least one permission.');
-      return;
-    }
+  function isProtected(role: RoleRecord) {
+    return PROTECTED_ROLES.has(role.normalizedName) || user?.roles.includes(role.name);
+  }
+
+  async function onCreate(values: RoleFormValues) {
     setSubmitting(true);
     try {
-      await createRole({ name, description: description || undefined, permissions });
+      await createRole({
+        name: values.name,
+        description: values.description || undefined,
+        permissions: values.permissions,
+      });
       setCreateOpen(false);
-      setName('');
-      setDescription('');
-      setPermissions([]);
       await refresh();
-    } catch (err) {
-      setFormError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || 'Could not create the role.',
-      );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function onEdit(values: RoleFormValues) {
+    if (!editingRole) return;
+    setSubmitting(true);
+    try {
+      await updateRole(editingRole.id, {
+        name: values.name,
+        description: values.description,
+        permissions: values.permissions,
+      });
+      setEditingRole(null);
+      await refresh();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onDelete() {
+    if (!deletingRole) return;
+    setDeleteSubmitting(true);
+    try {
+      await deleteRole(deletingRole.id);
+      setDeletingRole(null);
+      await refresh();
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -113,19 +143,43 @@ export default function RolesPage() {
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }) => (
-        <div className="flex w-fit items-end justify-end gap-3">
-          <button
-            type="button"
-            disabled={row.original.roleClaims.length === 0}
-            onClick={() => setClaimsRole(row.original)}
-            className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-gray-200 text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label={`View ${row.original.name} permissions`}
-          >
-            <EyeIcon />
-          </button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const role = row.original;
+        const protectedRole = isProtected(role);
+        return (
+          <div className="flex w-fit items-end justify-end gap-3">
+            <button
+              type="button"
+              disabled={role.roleClaims.length === 0}
+              onClick={() => setClaimsRole(role)}
+              className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-gray-200 text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={`View ${role.name} permissions`}
+            >
+              <EyeIcon />
+            </button>
+            {canManage && !protectedRole && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditingRole(role)}
+                  className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-gray-200 text-primary-dark transition hover:bg-gray-50"
+                  aria-label={`Edit ${role.name}`}
+                >
+                  <EditIcon fill="#020F52" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingRole(role)}
+                  className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-red-500 text-red-500 transition hover:bg-red-50"
+                  aria-label={`Delete ${role.name}`}
+                >
+                  <TrashIcon />
+                </button>
+              </>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -261,40 +315,46 @@ export default function RolesPage() {
         </ul>
       </Modal>
 
-      <Modal
+      <RoleFormModal
+        key="create-role"
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add role"
-        subtitle="Dynamic — this creates a real role with its own permission claims."
-        showFooter
         onConfirm={onCreate}
-        confirmLabel={submitting ? 'Creating…' : 'Create role'}
-        confirmDisabled={submitting}
-      >
-        <div className="flex flex-col gap-4">
-          {formError && (
-            <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {formError}
-            </p>
-          )}
-          <Input label="Role name" required value={name} onChange={(e) => setName(e.target.value)} />
-          <Input
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <Select
-            label="Permissions"
-            required
-            isMulti
-            showSearch
-            placeholder="Choose permissions"
-            value={permissions}
-            onChange={setPermissions}
-            options={PERMISSION_CATALOG}
-          />
-        </div>
-      </Modal>
+        submitting={submitting}
+      />
+
+      {editingRole && (
+        <RoleFormModal
+          key={`edit-role-${editingRole.id}`}
+          isOpen={Boolean(editingRole)}
+          onClose={() => setEditingRole(null)}
+          onConfirm={onEdit}
+          mode="edit"
+          submitting={submitting}
+          initialValues={{
+            name: editingRole.name,
+            description: editingRole.description ?? '',
+            permissions: editingRole.roleClaims.map((c) => c.claimType),
+          }}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={Boolean(deletingRole)}
+        onClose={() => setDeletingRole(null)}
+        onConfirm={onDelete}
+        variant="danger"
+        isSubmitting={deleteSubmitting}
+        title="Delete Role?"
+        message={
+          <>
+            Are you sure you want to delete{' '}
+            <span className="font-semibold">“{deletingRole?.name ?? 'this role'}”</span>? This
+            action cannot be undone.
+          </>
+        }
+        confirmLabel="Yes, Delete"
+      />
     </div>
   );
 }

@@ -1,5 +1,22 @@
 /** Copied 1:1 from EPCCRM's public/icons — same paths, same design system. */
 
+export function CheckedBoxIcon({ width = '18', height = '18' }: { width?: string; height?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 16 16" fill="none">
+      <rect width="16" height="16" rx="4" fill="#673DE6" />
+      <path d="M4 8.2 6.8 11 12 5" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function UncheckedBoxIcon({ width = '18', height = '18' }: { width?: string; height?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 16 16" fill="none">
+      <rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="white" stroke="#D1D5DB" />
+    </svg>
+  );
+}
+
 export function DashboardIcon({ fill = 'currentColor' }: { fill?: string }) {
   return (
     <svg width="20" height="20" viewBox="0 0 26 26" fill="none">

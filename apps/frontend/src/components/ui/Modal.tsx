@@ -20,7 +20,7 @@ type ModalProps = {
   onConfirm?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'extraLarge';
   position?: ModalPosition;
   showFooter?: boolean;
   showHeader?: boolean;
@@ -33,6 +33,7 @@ const sizeClasses = {
   small: 'sm:max-w-md',
   medium: 'sm:max-w-lg',
   large: 'sm:max-w-2xl',
+  extraLarge: 'sm:max-w-4xl',
 };
 
 /** Same structure as EPCCRM's AppModal: portal, center/right position, header/body/footer. */
@@ -63,9 +64,10 @@ export default function Modal({
       ? 'fixed inset-0 z-100 flex justify-end bg-black/50 backdrop-blur-xs p-0 md:p-5'
       : 'fixed inset-0 z-100 flex min-h-dvh items-end justify-center bg-black/50 backdrop-blur-xs md:items-center';
 
+  const rightModalWidth = size === 'extraLarge' ? 'md:w-[800px]' : 'md:w-[600px]';
   const modalClasses =
     position === ModalPosition.RIGHT
-      ? 'flex h-full w-full flex-col overflow-hidden bg-surface shadow-xl md:w-[520px] md:rounded-xl'
+      ? `flex h-full w-full flex-col overflow-hidden bg-surface shadow-xl ${rightModalWidth} md:rounded-xl`
       : `container mx-4 flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-xl bg-surface shadow-xl md:mx-auto md:rounded-xl ${sizeClasses[size]}`;
 
   return (

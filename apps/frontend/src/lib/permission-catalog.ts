@@ -23,3 +23,45 @@ export const PERMISSION_CATALOG = [
   { label: 'Invite users', value: 'users.invite' },
   { label: 'Manage roles', value: 'roles.manage' },
 ];
+
+const MODULE_LABELS: Record<string, string> = {
+  pnl: 'P&L',
+  transactions: 'Transactions',
+  ledger: 'Ledger',
+  attendance: 'Attendance',
+  leave: 'Leave',
+  disciplinary: 'Disciplinary',
+  employee: 'Employees',
+  payroll: 'Payroll',
+  rules: 'Rules',
+  loans: 'Loans',
+  reports: 'Reports',
+  users: 'Users',
+  roles: 'Roles',
+};
+
+export type PermissionModule = {
+  module: string;
+  label: string;
+  permissions: { label: string; value: string }[];
+};
+
+/**
+ * Same shape as EPCCRM's permission catalog response (`{module, label,
+ * permissions}[]`) — grouped by the module prefix so the Add Role modal can
+ * render the same collapsible-by-module checkbox tree.
+ */
+export const PERMISSION_MODULES: PermissionModule[] = Object.entries(
+  PERMISSION_CATALOG.reduce<Record<string, { label: string; value: string }[]>>(
+    (groups, item) => {
+      const module = item.value.split('.')[0];
+      (groups[module] ??= []).push(item);
+      return groups;
+    },
+    {},
+  ),
+).map(([module, permissions]) => ({
+  module,
+  label: MODULE_LABELS[module] ?? module,
+  permissions,
+}));

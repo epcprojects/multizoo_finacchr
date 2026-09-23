@@ -2,6 +2,7 @@
 
 import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import { useState } from 'react';
+import { CheckedBoxIcon, UncheckedBoxIcon } from './icons';
 
 export type SelectOption = { label: string; value: string };
 
@@ -49,6 +50,10 @@ export default function Select(props: SelectProps) {
     ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
     : options;
 
+  function resetQuery() {
+    setQuery('');
+  }
+
   function toggle(value: string) {
     if (props.isMulti) {
       const next = selectedValues.includes(value)
@@ -78,17 +83,26 @@ export default function Select(props: SelectProps) {
         </MenuButton>
 
         <MenuItems
+          portal
+          modal={false}
           anchor="bottom start"
-          className="z-50 w-[var(--button-width)] rounded-lg border border-gray-200 bg-white p-1 text-sm shadow-[0px_14px_34px_rgba(0,0,0,0.1)] outline-none [--anchor-gap:8px]"
+          transition
+          className="z-[9999] w-[var(--button-width)] rounded-lg border border-gray-200 bg-white p-1 text-sm shadow-[0px_14px_34px_rgba(0,0,0,0.1)] outline-none transition duration-100 ease-out [--anchor-gap:8px] data-closed:scale-95 data-closed:opacity-0"
+          onBlur={resetQuery}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') resetQuery();
+          }}
         >
           {showSearch && (
-            <div className="sticky top-0 bg-white p-1">
+            <div className="sticky top-0 z-10 bg-white p-1">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
+                autoComplete="off"
                 className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-gray-300"
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               />
             </div>
           )}
@@ -135,19 +149,3 @@ function ChevronDownIcon() {
   );
 }
 
-function CheckedBoxIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect width="16" height="16" rx="4" fill="#673DE6" />
-      <path d="M4 8.2 6.8 11 12 5" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function UncheckedBoxIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="white" stroke="#D1D5DB" />
-    </svg>
-  );
-}
