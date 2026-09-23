@@ -8,7 +8,13 @@ import Button from '../../../components/ui/Button';
 import Select from '../../../components/ui/Select';
 import PageBanner from '../../../components/ui/PageBanner';
 import AccountFormModal from '../../../components/accounts/AccountFormModal';
-import { CheckedBoxIcon, EditIcon, PlusIcon, SearchIcon, UncheckedBoxIcon } from '../../../components/ui/icons';
+import {
+  CheckedBoxIcon,
+  EditIcon,
+  PlusIcon,
+  SearchIcon,
+  UncheckedBoxIcon,
+} from '../../../components/ui/icons';
 import {
   ACCOUNT_TYPE_HINTS,
   ACCOUNT_TYPE_LABELS,
@@ -21,8 +27,20 @@ import {
 } from '../../../lib/api/ledger';
 import { formatMoney, toPaisa } from '../../../lib/money';
 
-const TYPES: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE'];
-const TYPE_LETTER: Record<AccountType, string> = { ASSET: 'A', LIABILITY: 'L', EQUITY: 'E', INCOME: 'I', EXPENSE: 'X' };
+const TYPES: AccountType[] = [
+  'ASSET',
+  'LIABILITY',
+  'EQUITY',
+  'INCOME',
+  'EXPENSE',
+];
+const TYPE_LETTER: Record<AccountType, string> = {
+  ASSET: 'A',
+  LIABILITY: 'L',
+  EQUITY: 'E',
+  INCOME: 'I',
+  EXPENSE: 'X',
+};
 
 /** Headings first, their children directly beneath, everything else by code. */
 function treeOrder(list: AccountRecord[]) {
@@ -31,7 +49,8 @@ function treeOrder(list: AccountRecord[]) {
   const out: { account: AccountRecord; depth: number }[] = [];
   for (const root of roots) {
     out.push({ account: root, depth: 0 });
-    for (const child of list.filter((a) => a.parentId === root.id)) out.push({ account: child, depth: 1 });
+    for (const child of list.filter((a) => a.parentId === root.id))
+      out.push({ account: child, depth: 1 });
   }
   return out;
 }
@@ -49,15 +68,23 @@ export default function AccountsPage() {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AccountRecord | null>(null);
+  const [activeType, setActiveType] = useState<AccountType>('ASSET');
 
   useEffect(() => {
-    void listBusinessUnits().then(setUnits).catch(() => undefined);
+    void listBusinessUnits()
+      .then(setUnits)
+      .catch(() => undefined);
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setAccounts(await listAccounts({ businessUnitId: unitId || undefined, includeInactive }));
+      setAccounts(
+        await listAccounts({
+          businessUnitId: unitId || undefined,
+          includeInactive,
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -84,8 +111,16 @@ export default function AccountsPage() {
     const total = list
       .filter((a) => !a.parentId || !ids.has(a.parentId))
       .reduce((sum, a) => sum + toPaisa(a.balance), 0n);
-    return { type, rows: treeOrder(list), total };
+    return { type, rows: treeOrder(list), count: list.length, total };
   });
+  const current = sections.find((x) => x.type === activeType) ?? sections[0];
+
+  // While searching, jump to the first bucket with a match if this one has none.
+  useEffect(() => {
+    if (!search.trim() || current.rows.length) return;
+    const firstHit = sections.find((x) => x.rows.length);
+    if (firstHit) setActiveType(firstHit.type);
+  }, [search]);
 
   const liquidTotal = accounts
     .filter((a) => ['CASH', 'BANK', 'WALLET'].includes(a.subtype))
@@ -101,7 +136,11 @@ export default function AccountsPage() {
             title="Chart of Accounts"
             stats={[
               { title: 'Accounts', count: accounts.length, color: '#A78BFA' },
-              { title: 'Cash, bank & wallet', count: formatMoney(liquidTotal, { decimals: false }), color: '#34D399' },
+              {
+                title: 'Cash, bank & wallet',
+                count: formatMoney(liquidTotal, { decimals: false }),
+                color: '#34D399',
+              },
             ]}
           />
         </div>
@@ -127,7 +166,10 @@ export default function AccountsPage() {
                   showSearch
                   value={unitId}
                   onChange={setUnitId}
-                  options={[{ label: 'All units', value: '' }, ...units.map((u) => ({ label: u.name, value: u.id }))]}
+                  options={[
+                    { label: 'All units', value: '' },
+                    ...units.map((u) => ({ label: u.name, value: u.id })),
+                  ]}
                 />
               </div>
               <button
@@ -153,86 +195,144 @@ export default function AccountsPage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-4 xl:overflow-y-auto">
-            {loading ? (
-              <p className="py-8 text-center text-sm text-gray-500">Loading…</p>
-            ) : (
-              sections.map(({ type, rows, total }) => (
-                <section key={type} className="rounded-xl border border-gray-200">
-                  <header className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-bold text-accent ring-1 ring-gray-200">
-                        {TYPE_LETTER[type]}
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{ACCOUNT_TYPE_LABELS[type]}</p>
-                        <p className="text-xs text-gray-500">{ACCOUNT_TYPE_HINTS[type]}</p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-semibold tabular-nums text-gray-900">{formatMoney(total)}</p>
-                  </header>
-                  {rows.length ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-160 text-left">
-                        <tbody>
-                          {rows.map(({ account: a, depth }) => (
-                            <tr
-                              key={a.id}
-                              onClick={() => a.isPostable && router.push(`/accounts/${a.id}`)}
-                              className={clsx(
-                                'border-b border-gray-100 last:border-0',
-                                a.isPostable && 'cursor-pointer hover:bg-gray-50',
-                                !a.isActive && 'opacity-50',
-                              )}
-                            >
-                              <td className="w-28 whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">{a.code}</td>
-                              <td className="px-4 py-2.5 text-sm">
-                                <span
-                                  className={clsx(depth ? 'pl-5 text-gray-800' : 'text-gray-900', !a.isPostable && 'font-semibold')}
-                                >
-                                  {a.name}
-                                </span>
-                                {!a.isActive && <span className="ml-2 text-xs text-gray-500">(inactive)</span>}
-                              </td>
-                              <td className="w-40 px-4 py-2.5 text-xs text-gray-600">
-                                {a.businessUnit ? a.businessUnit.name : 'Group-wide'}
-                              </td>
-                              <td className="w-28 px-4 py-2.5">
-                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-                                  {a.isPostable ? SUBTYPE_LABELS[a.subtype] : 'Heading'}
-                                </span>
-                              </td>
-                              <td className="w-40 whitespace-nowrap px-4 py-2.5 text-right text-sm tabular-nums text-gray-900">
-                                {formatMoney(a.balance)}
-                              </td>
-                              <td className="w-14 px-2 py-2.5 text-right">
-                                {canManage && (
-                                  <button
-                                    type="button"
-                                    aria-label={`Edit ${a.name}`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditing(a);
-                                      setFormOpen(true);
-                                    }}
-                                    className="rounded-md p-1.5 hover:bg-gray-100"
-                                  >
-                                    <EditIcon />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="px-4 py-4 text-sm text-gray-500">No accounts here{search ? ' match your search' : ''}.</p>
+          <div
+            role="tablist"
+            aria-label="Account type"
+            className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5"
+          >
+            {sections.map(({ type, count, total }) => {
+              const selected = type === activeType;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setActiveType(type)}
+                  className={clsx(
+                    'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition',
+                    selected
+                      ? 'border-accent bg-accent-soft ring-1 ring-accent'
+                      : 'border-gray-200 bg-white hover:bg-gray-50',
                   )}
-                </section>
-              ))
-            )}
+                >
+                  <span
+                    className={clsx(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold',
+                      selected
+                        ? 'bg-accent text-white'
+                        : 'bg-white text-accent ring-1 ring-gray-200',
+                    )}
+                  >
+                    {TYPE_LETTER[type]}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {ACCOUNT_TYPE_LABELS[type]}
+                      </span>
+                      <span className="text-xs text-gray-500">{count}</span>
+                    </span>
+                    <span className="block truncate text-xs tabular-nums text-gray-600">
+                      {formatMoney(total, { decimals: false })}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
+
+          <section
+            role="tabpanel"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200"
+          >
+            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-sm text-gray-600">
+                {ACCOUNT_TYPE_HINTS[activeType]}
+              </p>
+              <p className="text-sm font-semibold tabular-nums text-gray-900">
+                {formatMoney(current.total)}
+              </p>
+            </header>
+            <div className="min-h-0 flex-1 overflow-auto">
+              {loading ? (
+                <p className="py-8 text-center text-sm text-gray-500">
+                  Loading…
+                </p>
+              ) : current.rows.length ? (
+                <table className="w-full min-w-160 text-left">
+                  <tbody>
+                    {current.rows.map(({ account: a, depth }) => (
+                      <tr
+                        key={a.id}
+                        onClick={() =>
+                          a.isPostable && router.push(`/accounts/${a.id}`)
+                        }
+                        className={clsx(
+                          'border-b border-gray-100 last:border-0',
+                          a.isPostable && 'cursor-pointer hover:bg-gray-50',
+                          !a.isActive && 'opacity-50',
+                        )}
+                      >
+                        <td className="w-28 whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
+                          {a.code}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm">
+                          <span
+                            className={clsx(
+                              depth ? 'pl-5 text-gray-800' : 'text-gray-900',
+                              !a.isPostable && 'font-semibold',
+                            )}
+                          >
+                            {a.name}
+                          </span>
+                          {!a.isActive && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              (inactive)
+                            </span>
+                          )}
+                        </td>
+                        <td className="w-40 px-4 py-2.5 text-xs text-gray-600">
+                          {a.businessUnit ? a.businessUnit.name : 'Group-wide'}
+                        </td>
+                        <td className="w-28 px-4 py-2.5">
+                          <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                            {a.isPostable
+                              ? SUBTYPE_LABELS[a.subtype]
+                              : 'Heading'}
+                          </span>
+                        </td>
+                        <td className="w-40 whitespace-nowrap px-4 py-2.5 text-right text-sm tabular-nums text-gray-900">
+                          {formatMoney(a.balance)}
+                        </td>
+                        <td className="w-14 px-2 py-2.5 text-right">
+                          {canManage && (
+                            <button
+                              type="button"
+                              aria-label={`Edit ${a.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditing(a);
+                                setFormOpen(true);
+                              }}
+                              className="rounded-md p-1.5 hover:bg-gray-100"
+                            >
+                              <EditIcon />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="px-4 py-8 text-center text-sm text-gray-500">
+                  No {ACCOUNT_TYPE_LABELS[activeType].toLowerCase()} accounts
+                  {search ? ' match your search' : ''}.
+                </p>
+              )}
+            </div>
+          </section>
         </div>
       </div>
 
