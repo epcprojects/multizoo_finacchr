@@ -22,6 +22,7 @@ import { Account } from '../accounts/entities/account.entity';
 import { AccountClass } from '../accounts/entities/account-class.entity';
 import { UserBusinessUnit } from '../users/entities/user.business-unit.entity';
 import { JournalService } from '../journal/journal.service';
+import { BusinessUnitTypesService } from './business-unit-types.service';
 import { LedgerService } from '../ledger/ledger.service';
 import type { AuthenticatedUser } from '../users/users.service';
 import {
@@ -59,6 +60,7 @@ export class BusinessUnitsService {
 
     private readonly journalService: JournalService,
     private readonly ledgerService: LedgerService,
+    private readonly typesService: BusinessUnitTypesService,
   ) {}
 
   async list(user: AuthenticatedUser) {
@@ -66,6 +68,7 @@ export class BusinessUnitsService {
     if (scope && !scope.length) return [];
     const units = await this.unitRepo.find({
       where: scope ? { id: In(scope) } : {},
+      relations: { unitType: true },
       order: { code: 'ASC' },
     });
     if (!units.length) return [];
@@ -82,7 +85,9 @@ export class BusinessUnitsService {
         id: u.id,
         code: u.code,
         name: u.name,
-        type: u.type,
+        typeId: u.typeId,
+        typeName: u.unitType.name,
+        isHolding: u.unitType.isHolding,
         description: u.description,
         isActive: u.isActive,
         createdAt: u.createdAt,
@@ -135,7 +140,7 @@ export class BusinessUnitsService {
         m.create(BusinessUnit, {
           code,
           name: dto.name.trim(),
-          type: dto.type,
+          typeId: (await this.typesService.activeType(dto.typeId)).id,
           description: dto.description?.trim() || null,
           createdBy: user.id,
         }),
@@ -247,7 +252,9 @@ export class BusinessUnitsService {
     }
 
     if (dto.name !== undefined) unit.name = dto.name.trim();
-    if (dto.type !== undefined) unit.type = dto.type;
+    if (dto.typeId !== undefined && dto.typeId !== unit.typeId) {
+      unit.typeId = (await this.typesService.activeType(dto.typeId)).id;
+    }
     if (dto.description !== undefined) unit.description = dto.description.trim() || null;
     if (dto.isActive !== undefined) unit.isActive = dto.isActive;
     unit.updatedBy = user.id;

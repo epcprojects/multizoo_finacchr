@@ -5,9 +5,11 @@ import {
   defaultProvisionClassIds,
   ensureAccountClasses,
   ensureGroupAccounts,
+  ensureUnitTypes,
   getChartSettings,
   provisionUnitAccounts,
 } from '../../app/modules/accounts/chart-of-accounts';
+import { BusinessUnitType } from '../../app/modules/business-units/entities/business-unit-type.entity';
 
 /**
  * Account classes, numbering settings, the six operating units + holding
@@ -23,14 +25,17 @@ export async function seedLedger(dataSource: DataSource): Promise<void> {
     console.log(`Numbering: unit ${settings.unitCodePattern}, group ${settings.groupCodePattern}, step ${settings.codeStep}`);
     console.log(`Group-wide accounts: ${await ensureGroupAccounts(m)} created`);
 
+    console.log(`Business-unit types: ${await ensureUnitTypes(m)} created`);
+
     for (const seed of BUSINESS_UNIT_SEED) {
       let unit = await m.findOne(BusinessUnit, { where: { code: seed.code }, withDeleted: true });
       if (!unit) {
+        const unitType = await m.findOneOrFail(BusinessUnitType, { where: { key: seed.typeKey } });
         unit = await m.save(
           m.create(BusinessUnit, {
             code: seed.code,
             name: seed.name,
-            type: seed.type,
+            typeId: unitType.id,
             description: seed.description,
           }),
         );

@@ -296,7 +296,7 @@ export class LedgerService {
         id: unit.id,
         code: unit.code,
         name: unit.name,
-        type: unit.type,
+        typeId: unit.typeId,
         isActive: unit.isActive,
         accounts: unitAccounts,
         byClass: Object.fromEntries(liquidClassIds.map((id) => [id, fromPaisa(byClass.get(id) ?? 0n)])),

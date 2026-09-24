@@ -3,7 +3,9 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
-  IsEnum,
+  IsInt,
+  Max,
+  Min,
   IsOptional,
   IsString,
   IsUUID,
@@ -12,7 +14,6 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { BusinessUnitType } from '@multizoo/types';
 import { AMOUNT_REGEX, DATE_REGEX } from '../../journal/dto/journal-entry.dto';
 
 export class OpeningAmountDto {
@@ -46,8 +47,8 @@ export class CreateBusinessUnitDto {
   @MaxLength(100)
   name!: string;
 
-  @IsEnum(BusinessUnitType)
-  type!: BusinessUnitType;
+  @IsUUID()
+  typeId!: string;
 
   @IsOptional()
   @IsString()
@@ -147,8 +148,8 @@ export class UpdateBusinessUnitDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(BusinessUnitType)
-  type?: BusinessUnitType;
+  @IsUUID()
+  typeId?: string;
 
   @IsOptional()
   @IsString()
@@ -158,4 +159,35 @@ export class UpdateBusinessUnitDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class CreateBusinessUnitTypeDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  /** Non-trading (e.g. a holding company): new units default to a bank account and no reserves. */
+  @IsOptional()
+  @IsBoolean()
+  isHolding?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(9999)
+  sortOrder?: number;
+}
+
+export class UpdateBusinessUnitTypeDto {
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(60) name?: string;
+  @IsOptional() @IsString() @MaxLength(1000) description?: string;
+  @IsOptional() @IsBoolean() isHolding?: boolean;
+  @IsOptional() @IsInt() @Min(0) @Max(9999) sortOrder?: number;
+  @IsOptional() @IsBoolean() isActive?: boolean;
 }

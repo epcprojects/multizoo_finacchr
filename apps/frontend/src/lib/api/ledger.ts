@@ -2,13 +2,6 @@ import { apiClient } from './client';
 
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 export type UnitRule = 'UNIT_REQUIRED' | 'GROUP_ONLY' | 'EITHER';
-export type BusinessUnitType =
-  | 'WILDLIFE_PARK'
-  | 'FOOD_BEVERAGE'
-  | 'RETAIL'
-  | 'ENTERTAINMENT'
-  | 'LIVESTOCK'
-  | 'HOLDING';
 export type EntryKind =
   | 'MONEY_IN'
   | 'MONEY_OUT'
@@ -25,14 +18,35 @@ export const UNIT_RULE_LABELS: Record<UnitRule, string> = {
 
 export const ACCOUNT_TYPES: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE'];
 
-export const UNIT_TYPE_LABELS: Record<BusinessUnitType, string> = {
-  WILDLIFE_PARK: 'Wildlife park',
-  FOOD_BEVERAGE: 'Food & beverage',
-  RETAIL: 'Retail',
-  ENTERTAINMENT: 'Entertainment',
-  LIVESTOCK: 'Livestock',
-  HOLDING: 'Holding company',
-};
+/** A configurable "Type of business" — see the type dropdown's "Add new type". */
+export interface BusinessUnitTypeRecord {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  /** Non-trading: new units default to a bank account and no reserves. */
+  isHolding: boolean;
+  sortOrder: number;
+  isSystem: boolean;
+  isActive: boolean;
+  unitCount: number;
+}
+
+export async function listBusinessUnitTypes(includeInactive = false) {
+  const { data } = await apiClient.get<BusinessUnitTypeRecord[]>('/business-unit-types', {
+    params: includeInactive ? { includeInactive: true } : {},
+  });
+  return data;
+}
+
+export async function createBusinessUnitType(payload: {
+  name: string;
+  description?: string;
+  isHolding?: boolean;
+}) {
+  const { data } = await apiClient.post<BusinessUnitTypeRecord>('/business-unit-types', payload);
+  return data;
+}
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   ASSET: 'Assets',
@@ -99,7 +113,9 @@ export interface BusinessUnitRecord {
   id: string;
   code: string;
   name: string;
-  type: BusinessUnitType;
+  typeId: string;
+  typeName: string;
+  isHolding: boolean;
   description: string | null;
   isActive: boolean;
   createdAt: string;
@@ -189,7 +205,7 @@ export interface CashPositionUnit {
   id: string;
   code: string;
   name: string;
-  type: BusinessUnitType;
+  typeId: string;
   isActive: boolean;
   accounts: { id: string; code: string; name: string; classId: string; isActive: boolean; balance: string }[];
   /** Balance per money-on-hand class id. */
@@ -254,7 +270,7 @@ export async function getUnitTemplates() {
 export async function createBusinessUnit(payload: {
   code: string;
   name: string;
-  type: BusinessUnitType;
+  typeId: string;
   description?: string;
   accountClassIds: string[];
   reserveBuckets: string[];
@@ -270,7 +286,7 @@ export async function updateBusinessUnit(
     name: string;
     code: string;
     relabelAccountCodes: boolean;
-    type: BusinessUnitType;
+    typeId: string;
     description: string;
     isActive: boolean;
   }>,

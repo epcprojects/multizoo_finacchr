@@ -91,7 +91,8 @@ Partner profit reserves (`Ismail Khan Profits Reserve (25% of 34%)` etc.),
 
 | Entity | Key columns | Notes |
 |---|---|---|
-| `BusinessUnit` | `code` (unique, e.g. `ZOO`), `name`, `type` (`WILDLIFE_PARK`, `FOOD_BEVERAGE`, `RETAIL`, `ENTERTAINMENT`, `LIVESTOCK`, `HOLDING`), `description` | `BaseEntity` (soft delete, isActive, audit) |
+| `BusinessUnitType` | `key`, `name` (unique), `description`, `isHolding`, `sortOrder`, `isSystem` | Configurable "Type of business". Six seeded (Wildlife park, Food & beverage, Retail, Entertainment, Livestock, Holding company). More are added from the dropdown's **+ Add new type**, which needs `business_units.manage`. `isHolding` = non-trading: new units default to bank only, no reserves. Deactivating a type hides it from new units only |
+| `BusinessUnit` | `code` (unique, editable, e.g. `ZOO`), `name`, `typeId` → `BusinessUnitType`, `description` | `BaseEntity` (soft delete, isActive, audit) |
 | `AccountClass` | `key`, `name`, `type` (bucket), `unitRule`, `codeStart`/`codeEnd`, `isLiquid`, `isReserve`, `isReconcilable`, `provisionForNewUnits`, `defaultAccountName`, `sortOrder`, `isSystem` | Configurable — see "Configurable chart of accounts" |
 | `ChartSettings` | `unitCodePattern`, `groupCodePattern`, `codeStep` | Single row |
 | `Account` | `code` (unique, editable), `name`, `type` (copied from the class), `classId`, `businessUnitId` (nullable = group-wide), `parentId` (nullable), `isPostable`, `isSystem`, `systemKey` | `BaseEntity`. System accounts (Opening Balance Equity) can't be renamed/deactivated |

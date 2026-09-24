@@ -55,7 +55,12 @@ export enum Permission {
 // Ledger (Module 2)
 // ---------------------------------------------------------------------------
 
-export enum BusinessUnitType {
+/**
+ * Keys of the business-unit types seeded on day one. Types are DATA (the
+ * business_unit_types table) — a Partner or Accountant adds more from the
+ * type dropdown — so nothing switches on these keys except the seed.
+ */
+export enum SystemBusinessUnitType {
   WILDLIFE_PARK = 'WILDLIFE_PARK',
   FOOD_BEVERAGE = 'FOOD_BEVERAGE',
   RETAIL = 'RETAIL',

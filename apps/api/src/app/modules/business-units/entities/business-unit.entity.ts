@@ -1,12 +1,12 @@
-import { BeforeInsert, BeforeUpdate, Column, Entity } from 'typeorm';
+import { BeforeInsert, BeforeUpdate, Column, Entity, JoinColumn, ManyToOne, Relation } from 'typeorm';
 import { BaseEntity } from '@multizoo/interfaces';
-import { BusinessUnitType } from '@multizoo/types';
+import { BusinessUnitType } from './business-unit-type.entity';
 
 /**
  * One operating business (Multi Zoo, Panda Cafe, …) or the holding company.
- * Replaces "one tab per unit" in the cash-flow workbook. The `code` is
- * immutable once created because every unit-owned account code is prefixed
- * with it (ZOO-1100 Cash in Hand).
+ * Replaces "one tab per unit" in the cash-flow workbook. The code is used
+ * when numbering the unit's new accounts; it can be changed (account codes
+ * are labels), optionally re-lettering existing account codes.
  */
 @Entity('business_units')
 export class BusinessUnit extends BaseEntity {
@@ -16,8 +16,12 @@ export class BusinessUnit extends BaseEntity {
   @Column({ length: 100 })
   name!: string;
 
-  @Column({ type: 'enum', enum: BusinessUnitType })
-  type!: BusinessUnitType;
+  @Column({ type: 'uuid' })
+  typeId!: string;
+
+  @ManyToOne(() => BusinessUnitType)
+  @JoinColumn({ name: 'typeId' })
+  unitType!: Relation<BusinessUnitType>;
 
   @Column({ type: 'text', nullable: true })
   description!: string | null;

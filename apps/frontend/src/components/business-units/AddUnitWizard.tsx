@@ -6,13 +6,12 @@ import Modal, { ModalPosition } from '../ui/Modal';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import UnitTypeSelect from './UnitTypeSelect';
 import { CheckedBoxIcon, UncheckedBoxIcon } from '../ui/icons';
 import {
   createBusinessUnit,
   getUnitTemplates,
-  UNIT_TYPE_LABELS,
   type BusinessUnitRecord,
-  type BusinessUnitType,
   type UnitTemplates,
 } from '../../lib/api/ledger';
 import { errorMessage, formatMoney, isAmount, todayIso, toPaisa } from '../../lib/money';
@@ -47,7 +46,8 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [codeTouched, setCodeTouched] = useState(false);
-  const [type, setType] = useState<BusinessUnitType>('RETAIL');
+  const [typeId, setTypeId] = useState('');
+  const [isHolding, setIsHolding] = useState(false);
   const [description, setDescription] = useState('');
   const [templates, setTemplates] = useState<UnitTemplates>({ reserveCatalog: [], provisionableClasses: [] });
   const [classIds, setClassIds] = useState<string[]>([]);
@@ -65,7 +65,8 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
     setName('');
     setCode('');
     setCodeTouched(false);
-    setType('RETAIL');
+    setTypeId('');
+    setIsHolding(false);
     setDescription('');
     setCopyFrom('');
     setBuckets([]);
@@ -85,22 +86,21 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
     if (!codeTouched) setCode(suggestCode(name));
   }, [name, codeTouched]);
 
-  // A holding company has no till: default it to a bank account only.
+  // A holding / non-trading type has no till: default it to a bank account only.
   useEffect(() => {
     const classes = templates.provisionableClasses;
     setClassIds(
-      type === 'HOLDING'
+      isHolding
         ? classes.filter((c) => c.key === 'BANK').map((c) => c.id)
         : classes.filter((c) => c.byDefault).map((c) => c.id),
     );
-  }, [type, templates]);
+  }, [isHolding, templates]);
 
   useEffect(() => {
     const source = units.find((u) => u.id === copyFrom);
     if (source) setBuckets(source.reserveBuckets);
   }, [copyFrom, units]);
 
-  const isHolding = type === 'HOLDING';
   const allBuckets = [...new Set([...templates.reserveCatalog, ...buckets])];
   const chosen = templates.provisionableClasses.filter((c) => classIds.includes(c.id));
   const liquidChosen = chosen.filter((c) => c.isLiquid);
@@ -115,6 +115,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
         return setError('The code must be 2–12 letters/digits and start with a letter — e.g. KIOSK.');
       }
       if (units.some((u) => u.code === code)) return setError(`Code ${code} is already used.`);
+      if (!typeId) return setError('Choose the type of business.');
     }
     setStep((s) => s + 1);
   }
@@ -133,7 +134,7 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
       const unit = await createBusinessUnit({
         code,
         name: name.trim(),
-        type,
+        typeId,
         description: description.trim() || undefined,
         accountClassIds: classIds,
         reserveBuckets: isHolding ? [] : buckets,
@@ -199,12 +200,22 @@ export default function AddUnitWizard({ isOpen, onClose, onCreated, units }: Add
                 setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
               }}
             />
-            <Select
-              label="Type of business"
-              required
-              value={type}
-              onChange={(v) => setType(v as BusinessUnitType)}
-              options={(Object.keys(UNIT_TYPE_LABELS) as BusinessUnitType[]).map((t) => ({ label: UNIT_TYPE_LABELS[t], value: t }))}
+            <UnitTypeSelect
+              value={typeId}
+              canAdd
+              onChange={(id, t) => {
+                setTypeId(id);
+                setIsHolding(Boolean(t?.isHolding));
+              }}
+              onLoaded={(types) => {
+                // Default to Retail (or the first type) the first time the list loads.
+                if (typeId) return;
+                const first = types.find((t) => t.key === 'RETAIL') ?? types[0];
+                if (first) {
+                  setTypeId(first.id);
+                  setIsHolding(first.isHolding);
+                }
+              }}
             />
             <Input label="Description" placeholder="Optional" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>

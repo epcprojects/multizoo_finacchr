@@ -4,13 +4,14 @@ import { BaseEntity } from '@multizoo/interfaces';
 import {
   AccountClassUnitRule,
   AccountType,
-  BusinessUnitType,
+  SystemBusinessUnitType,
   SystemAccountClass,
 } from '@multizoo/types';
 import { Account } from './entities/account.entity';
 import { AccountClass } from './entities/account-class.entity';
 import { ChartSettings } from './entities/chart-settings.entity';
 import { BusinessUnit } from '../business-units/entities/business-unit.entity';
+import { BusinessUnitType } from '../business-units/entities/business-unit-type.entity';
 import { buildCode, nextNumber, parseNumber } from './account-codes';
 
 /**
@@ -115,7 +116,7 @@ const RETAIL_RESERVES = [
 type UnitSeed = {
   code: string;
   name: string;
-  type: BusinessUnitType;
+  typeKey: SystemBusinessUnitType;
   description: string;
   reserves: string[];
   /** Overrides the classes marked provisionForNewUnits. */
@@ -124,14 +125,36 @@ type UnitSeed = {
 
 /** The six operating units + holding company. PC NUST is eliminated (plan Part 02). */
 export const BUSINESS_UNIT_SEED: UnitSeed[] = [
-  { code: 'ZOO', name: 'Multi Zoo', type: BusinessUnitType.WILDLIFE_PARK, description: 'Wildlife park — ticketing, feed & medicine by species group.', reserves: ['Salary', 'Marketing', 'Medicine', 'Development', 'Utilities', 'Feed', 'Transport', 'Maintenance', 'Capital', 'Employee Relief'] },
-  { code: 'CAFE', name: 'Panda Cafe', type: BusinessUnitType.FOOD_BEVERAGE, description: 'Panda Cafe and Mini Panda Cafe outlets.', reserves: ['Salary', 'Marketing', 'Fuel', 'Utilities', 'Rent', 'Stock', 'Oil', 'Transport', 'Maintenance', 'Capital', 'Employee Relief'] },
-  { code: 'GIFT', name: 'Jungle Joys Gift Shop', type: BusinessUnitType.RETAIL, description: 'Gift shop retail sales.', reserves: RETAIL_RESERVES },
-  { code: 'JOYLAND', name: 'Joy Land', type: BusinessUnitType.ENTERTAINMENT, description: 'Rides & attractions.', reserves: RETAIL_RESERVES },
-  { code: 'PETS', name: 'Pets Accessories', type: BusinessUnitType.RETAIL, description: 'Pet accessories retail.', reserves: RETAIL_RESERVES },
-  { code: 'MBF', name: 'MBF Breeding Unit', type: BusinessUnitType.LIVESTOCK, description: 'Livestock and bird breeding — sales and purchases.', reserves: ['Assets', 'Utilities', 'Stock', 'Salary', 'Maintenance', 'Feed'] },
-  { code: 'ZCO', name: 'Z & Co (Holding)', type: BusinessUnitType.HOLDING, description: 'Holding company — consolidates bank balances across units.', reserves: [], classKeys: [C.BANK] },
+  { code: 'ZOO', name: 'Multi Zoo', typeKey: SystemBusinessUnitType.WILDLIFE_PARK, description: 'Wildlife park — ticketing, feed & medicine by species group.', reserves: ['Salary', 'Marketing', 'Medicine', 'Development', 'Utilities', 'Feed', 'Transport', 'Maintenance', 'Capital', 'Employee Relief'] },
+  { code: 'CAFE', name: 'Panda Cafe', typeKey: SystemBusinessUnitType.FOOD_BEVERAGE, description: 'Panda Cafe and Mini Panda Cafe outlets.', reserves: ['Salary', 'Marketing', 'Fuel', 'Utilities', 'Rent', 'Stock', 'Oil', 'Transport', 'Maintenance', 'Capital', 'Employee Relief'] },
+  { code: 'GIFT', name: 'Jungle Joys Gift Shop', typeKey: SystemBusinessUnitType.RETAIL, description: 'Gift shop retail sales.', reserves: RETAIL_RESERVES },
+  { code: 'JOYLAND', name: 'Joy Land', typeKey: SystemBusinessUnitType.ENTERTAINMENT, description: 'Rides & attractions.', reserves: RETAIL_RESERVES },
+  { code: 'PETS', name: 'Pets Accessories', typeKey: SystemBusinessUnitType.RETAIL, description: 'Pet accessories retail.', reserves: RETAIL_RESERVES },
+  { code: 'MBF', name: 'MBF Breeding Unit', typeKey: SystemBusinessUnitType.LIVESTOCK, description: 'Livestock and bird breeding — sales and purchases.', reserves: ['Assets', 'Utilities', 'Stock', 'Salary', 'Maintenance', 'Feed'] },
+  { code: 'ZCO', name: 'Z & Co (Holding)', typeKey: SystemBusinessUnitType.HOLDING, description: 'Holding company — consolidates bank balances across units.', reserves: [], classKeys: [C.BANK] },
 ];
+
+const T = SystemBusinessUnitType;
+
+/** The day-one business-unit types — more are added from the type dropdown. */
+export const UNIT_TYPE_SEED: { key: SystemBusinessUnitType; name: string; description: string; isHolding: boolean; sortOrder: number }[] = [
+  { key: T.WILDLIFE_PARK, name: 'Wildlife park', description: 'Zoo / animal park — ticketed entry.', isHolding: false, sortOrder: 10 },
+  { key: T.FOOD_BEVERAGE, name: 'Food & beverage', description: 'Cafes, restaurants, kiosks.', isHolding: false, sortOrder: 20 },
+  { key: T.RETAIL, name: 'Retail', description: 'Shops selling goods.', isHolding: false, sortOrder: 30 },
+  { key: T.ENTERTAINMENT, name: 'Entertainment', description: 'Rides and attractions.', isHolding: false, sortOrder: 40 },
+  { key: T.LIVESTOCK, name: 'Livestock', description: 'Breeding and livestock sales.', isHolding: false, sortOrder: 50 },
+  { key: T.HOLDING, name: 'Holding company', description: 'Non-trading entity that holds balances for the group.', isHolding: true, sortOrder: 60 },
+];
+
+export async function ensureUnitTypes(m: EntityManager): Promise<number> {
+  let created = 0;
+  for (const seed of UNIT_TYPE_SEED) {
+    if (await m.findOne(BusinessUnitType, { where: { key: seed.key }, withDeleted: true })) continue;
+    await m.save(m.create(BusinessUnitType, { ...seed, isSystem: true }));
+    created++;
+  }
+  return created;
+}
 
 // ---------------------------------------------------------------------------
 

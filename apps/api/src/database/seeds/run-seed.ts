@@ -5,6 +5,7 @@ import { UserRole } from '../../app/modules/users/entities/user.roles.entity';
 import { Role } from '../../app/modules/roles/entities/role.entity';
 import { RoleClaim } from '../../app/modules/roles/entities/role.claim.entity';
 import { BusinessUnit } from '../../app/modules/business-units/entities/business-unit.entity';
+import { BusinessUnitType } from '../../app/modules/business-units/entities/business-unit-type.entity';
 import { Account } from '../../app/modules/accounts/entities/account.entity';
 import { AccountClass } from '../../app/modules/accounts/entities/account-class.entity';
 import { ChartSettings } from '../../app/modules/accounts/entities/chart-settings.entity';
@@ -30,6 +31,7 @@ async function main() {
       Role,
       RoleClaim,
       BusinessUnit,
+      BusinessUnitType,
       Account,
       AccountClass,
       ChartSettings,

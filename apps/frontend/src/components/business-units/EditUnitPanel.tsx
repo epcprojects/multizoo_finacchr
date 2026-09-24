@@ -5,9 +5,9 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import Modal, { ModalPosition } from '../ui/Modal';
 import Input from '../ui/Input';
-import Select from '../ui/Select';
 import Button from '../ui/Button';
 import AccountFormModal from '../accounts/AccountFormModal';
+import UnitTypeSelect from './UnitTypeSelect';
 import { CheckedBoxIcon, EditIcon, PlusIcon, UncheckedBoxIcon } from '../ui/icons';
 import {
   addUnitAccounts,
@@ -16,12 +16,10 @@ import {
   listAccountClasses,
   listAccounts,
   setUnitOpeningBalances,
-  UNIT_TYPE_LABELS,
   updateBusinessUnit,
   type AccountClassRecord,
   type AccountRecord,
   type BusinessUnitRecord,
-  type BusinessUnitType,
   type UnitOpeningBalances,
   type UnitTemplates,
 } from '../../lib/api/ledger';
@@ -76,7 +74,7 @@ export default function EditUnitPanel({ unit, units, onClose, onChanged, canMana
       isOpen={Boolean(unit)}
       onClose={onClose}
       title={unit ? `Edit ${unit.name}` : 'Edit Business Unit'}
-      subtitle={unit ? `${unit.code} · ${UNIT_TYPE_LABELS[unit.type]}` : undefined}
+      subtitle={unit ? `${unit.code} · ${unit.typeName}` : undefined}
       position={ModalPosition.RIGHT}
       size="extraLarge"
       outsideClickClose={false}
@@ -117,7 +115,7 @@ function DetailsTab({ unit, units, onChanged }: { unit: BusinessUnitRecord; unit
   const [name, setName] = useState(unit.name);
   const [code, setCode] = useState(unit.code);
   const [relabelCodes, setRelabelCodes] = useState(true);
-  const [type, setType] = useState<BusinessUnitType>(unit.type);
+  const [typeId, setTypeId] = useState(unit.typeId);
   const [description, setDescription] = useState(unit.description ?? '');
   const [isActive, setIsActive] = useState(unit.isActive);
   const [sample, setSample] = useState<string[]>([]);
@@ -127,7 +125,7 @@ function DetailsTab({ unit, units, onChanged }: { unit: BusinessUnitRecord; unit
   useEffect(() => {
     setName(unit.name);
     setCode(unit.code);
-    setType(unit.type);
+    setTypeId(unit.typeId);
     setDescription(unit.description ?? '');
     setIsActive(unit.isActive);
   }, [unit]);
@@ -151,7 +149,7 @@ function DetailsTab({ unit, units, onChanged }: { unit: BusinessUnitRecord; unit
     try {
       await updateBusinessUnit(unit.id, {
         name: name.trim(),
-        type,
+        typeId,
         description: description.trim(),
         ...(codeChanged ? { code, relabelAccountCodes: relabelCodes } : {}),
         ...(isActive !== unit.isActive ? { isActive } : {}),
@@ -198,13 +196,7 @@ function DetailsTab({ unit, units, onChanged }: { unit: BusinessUnitRecord; unit
         )}
       </div>
 
-      <Select
-        label="Type of business"
-        required
-        value={type}
-        onChange={(v) => setType(v as BusinessUnitType)}
-        options={(Object.keys(UNIT_TYPE_LABELS) as BusinessUnitType[]).map((t) => ({ label: UNIT_TYPE_LABELS[t], value: t }))}
-      />
+      <UnitTypeSelect value={typeId} canAdd onChange={(id) => setTypeId(id)} />
       <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <button type="button" onClick={() => setIsActive((v) => !v)} className="flex items-start gap-2 text-left">
         <span className="mt-0.5">{isActive ? <CheckedBoxIcon /> : <UncheckedBoxIcon />}</span>
@@ -393,7 +385,7 @@ function AccountsTab({
           </div>
         )}
 
-        {unit.type !== 'HOLDING' && (
+        {!unit.isHolding && (
           <div>
             <p className="mb-2 text-xs text-gray-600">Reserve buckets</p>
             <div className="flex flex-wrap gap-2">

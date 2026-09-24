@@ -11,7 +11,6 @@ import { EditIcon, PlusIcon } from '../../../components/ui/icons';
 import {
   getCashPosition,
   listBusinessUnits,
-  UNIT_TYPE_LABELS,
   type BusinessUnitRecord,
   type CashPosition,
 } from '../../../lib/api/ledger';
@@ -98,7 +97,7 @@ export default function BusinessUnitsPage() {
                           <div className="min-w-0">
                             <p className="truncate text-base font-semibold text-gray-950">{u.name}</p>
                             <p className="text-xs text-gray-600">
-                              <span className="font-mono">{u.code}</span> · {UNIT_TYPE_LABELS[u.type]}
+                              <span className="font-mono">{u.code}</span> · {u.typeName}
                               {!u.isActive && ' · Inactive'}
                             </p>
                           </div>
