@@ -22,8 +22,8 @@ Modules are built **strictly in sequence** — one is finished (built, tested,
 demoed) before the next starts. See `docs/` for a per-module status file.
 
 1. **Identity & Access** ✅
-2. **Ledger foundation** (business units, chart of accounts, transactions) ← current
-3. Income allocation engine
+2. **Ledger foundation** (business units, chart of accounts, transactions) ✅
+3. **Income allocation engine** (versioned waterfall rules, partners, reserves) ← current
 4. Employee, attendance & leave
 5. Payroll, incentives & settlement
 6. Loans, utilities & cost centres
@@ -35,10 +35,10 @@ demoed) before the next starts. See `docs/` for a per-module status file.
 ```bash
 cp .env.example .env   # fill in your local Postgres credentials — see docs/database-setup.md
 npm install
-npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts
+npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts, partners + allocation rules
 npx nx serve api        # backend on :3000 — Swagger at /api/v1/docs
 npx nx dev frontend      # frontend on :4200
-npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money)
+npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money, allocation + formula parity)
 ```
 
 Or, on Windows, run both at once (kills anything already on 3000/4200 first,
@@ -52,7 +52,7 @@ start-dev.bat
 
 ```
 apps/
-  api/         NestJS backend — modules/{auth,users,roles,business-units,accounts,journal,ledger},
+  api/         NestJS backend — modules/{auth,users,roles,business-units,accounts,journal,ledger,allocation},
                common/{guards,decorators,email,scope}
   frontend/    Next.js frontend (App Router, Tailwind v4)
 libs/
@@ -62,6 +62,7 @@ libs/
 docs/
   module-01-identity-access.md   status + verification steps, one file per module
   module-02-ledger-foundation.md
+  module-03-income-allocation.md
   database-setup.md              local Postgres role/database setup
 start-dev.bat  Windows: kills 3000/4200, starts backend + frontend each in their own window
 ```

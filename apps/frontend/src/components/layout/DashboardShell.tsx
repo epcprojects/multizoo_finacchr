@@ -14,6 +14,7 @@ import {
   TransactionsIcon,
   AccountsIcon,
   UnitsIcon,
+  AllocationIcon,
 } from '../ui/icons';
 
 type NavItem = {
@@ -35,6 +36,12 @@ const navigationItems: NavItem[] = [
     href: '/accounts',
     label: 'Accounts',
     icon: <AccountsIcon />,
+    anyPermissions: ['ledger.view'],
+  },
+  {
+    href: '/allocation',
+    label: 'Allocation',
+    icon: <AllocationIcon />,
     anyPermissions: ['ledger.view'],
   },
   {

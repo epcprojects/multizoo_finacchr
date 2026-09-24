@@ -27,6 +27,8 @@ export const POSTABLE_KINDS = [
   JournalEntryKind.TRANSFER,
   JournalEntryKind.OPENING_BALANCE,
   JournalEntryKind.GENERAL,
+  JournalEntryKind.PARTNER_DRAWING,
+  JournalEntryKind.RESERVE_TRANSFER,
 ] as const;
 
 export class JournalLineDto {
@@ -72,6 +74,11 @@ export class CreateJournalEntryDto {
   @ValidateNested({ each: true })
   @Type(() => JournalLineDto)
   lines!: JournalLineDto[];
+
+  /** Money out only: the reserve bucket this payment is paid out of. */
+  @IsOptional()
+  @IsUUID()
+  reserveAccountId?: string;
 }
 
 export class ReverseJournalEntryDto {

@@ -16,6 +16,10 @@ import { CashReconciliation } from '../../app/modules/ledger/entities/cash-recon
 import { seedRoles } from './roles.seed';
 import { seedLedger } from './ledger.seed';
 import { seedSuperAdmin } from './super-admin.seed';
+import { seedAllocation } from './allocation.seed';
+import { Partner } from '../../app/modules/allocation/entities/partner.entity';
+import { AllocationLine, AllocationRule, AllocationTranche } from '../../app/modules/allocation/entities/allocation-rule.entity';
+import { AllocationRun } from '../../app/modules/allocation/entities/allocation-run.entity';
 
 async function main() {
   const dataSource = new DataSource({
@@ -39,6 +43,11 @@ async function main() {
       JournalEntry,
       JournalLine,
       CashReconciliation,
+      Partner,
+      AllocationRule,
+      AllocationTranche,
+      AllocationLine,
+      AllocationRun,
     ],
     synchronize: false,
   });
@@ -49,6 +58,7 @@ async function main() {
   await seedRoles(dataSource);
   await seedSuperAdmin(dataSource);
   await seedLedger(dataSource);
+  await seedAllocation(dataSource);
 
   await dataSource.destroy();
   console.log('Done.');

@@ -28,6 +28,9 @@ const KIND_TONES: Record<EntryKind, string> = {
   OPENING_BALANCE: 'bg-gray-50 text-gray-700 border-gray-200',
   GENERAL: 'bg-accent-soft text-accent border-purple-200',
   REVERSAL: 'bg-warning-25 text-warning-800 border-warning-200',
+  ALLOCATION: 'bg-teal-50 text-teal-700 border-teal-200',
+  RESERVE_TRANSFER: 'bg-teal-50 text-teal-700 border-teal-200',
+  PARTNER_DRAWING: 'bg-orange-50 text-orange-700 border-orange-200',
 };
 
 export default function TransactionsPage() {

@@ -25,7 +25,7 @@ import {
   toPaisa,
 } from '../../lib/money';
 
-type PostableKind = Exclude<EntryKind, 'REVERSAL'>;
+type PostableKind = Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION'>;
 
 const KIND_TABS: { kind: PostableKind; label: string; hint: string; accountantOnly?: boolean }[] = [
   { kind: 'MONEY_IN', label: 'Money in', hint: 'Sales or any money received into cash, bank or wallet.' },
@@ -43,6 +43,18 @@ const KIND_TABS: { kind: PostableKind; label: string; hint: string; accountantOn
     hint: 'Any balanced set of debits and credits — for corrections and adjustments.',
     accountantOnly: true,
   },
+  {
+    kind: 'PARTNER_DRAWING',
+    label: 'Partner drawing',
+    hint: 'Cash a partner takes against their own share. Releases their profit reserve in this unit.',
+    accountantOnly: true,
+  },
+  {
+    kind: 'RESERVE_TRANSFER',
+    label: 'Reserve transfer',
+    hint: 'Move an earmark from one reserve to another (e.g. Capital → Utilities). Cash doesn’t move.',
+    accountantOnly: true,
+  },
 ];
 
 type JournalLineDraft = { key: number; accountId: string; debit: string; credit: string; memo: string };
@@ -53,7 +65,9 @@ type NewEntryPanelProps = {
   onPosted: (entry: JournalEntryRecord) => void;
   units: BusinessUnitRecord[];
   defaultUnitId?: string;
-  /** Holds ledger.reconcile — may post opening balances and general journals. */
+  /** Opens on this tab (e.g. Reserve transfer from the Allocation screen). */
+  initialKind?: PostableKind;
+  /** Holds ledger.reconcile — may post opening balances, general journals, drawings, reserve transfers. */
   isAccountant: boolean;
 };
 
@@ -79,10 +93,14 @@ export default function NewEntryPanel({
   onPosted,
   units,
   defaultUnitId,
+  initialKind,
   isAccountant,
 }: NewEntryPanelProps) {
   const activeUnits = useMemo(() => units.filter((u) => u.isActive), [units]);
   const [kind, setKind] = useState<PostableKind>('MONEY_IN');
+  /** Money out: the reserve it's paid out of. Reserve transfer: the reserve it leaves. */
+  const [reserveId, setReserveId] = useState('');
+  const [reserves, setReserves] = useState<AccountRecord[]>([]);
   const [unitId, setUnitId] = useState('');
   const [entryDate, setEntryDate] = useState(todayIso());
   const [description, setDescription] = useState('');
@@ -98,7 +116,7 @@ export default function NewEntryPanel({
 
   useEffect(() => {
     if (!isOpen) return;
-    setKind('MONEY_IN');
+    setKind(initialKind ?? 'MONEY_IN');
     setUnitId(defaultUnitId ?? (activeUnits.length === 1 ? activeUnits[0].id : ''));
     setEntryDate(todayIso());
     setDescription('');
@@ -111,30 +129,46 @@ export default function NewEntryPanel({
       { key: 2, accountId: '', debit: '', credit: '', memo: '' },
     ]);
     setError(null);
-  }, [isOpen, defaultUnitId, activeUnits]);
+  }, [isOpen, defaultUnitId, activeUnits, initialKind]);
 
   useEffect(() => {
     if (!isOpen || !unitId) {
       setAccounts([]);
+      setReserves([]);
       return;
     }
     setLoadingAccounts(true);
     listAccounts({ businessUnitId: unitId })
-      .then((list) => setAccounts(list.filter((a) => a.isPostable && a.isActive && !a.accountClass?.isReserve)))
-      .catch(() => setAccounts([]))
+      .then((list) => {
+        const usable = list.filter((a) => a.isPostable && a.isActive);
+        setAccounts(usable.filter((a) => !a.accountClass?.isReserve));
+        // Buckets and partners' profit reserves (the offset never shows — the ledger handles it).
+        setReserves(usable.filter((a) => a.reserveKind === 'BUCKET' || a.reserveKind === 'PARTNER'));
+      })
+      .catch(() => {
+        setAccounts([]);
+        setReserves([]);
+      })
       .finally(() => setLoadingAccounts(false));
     setLiquidId('');
     setOtherId('');
+    setReserveId('');
   }, [isOpen, unitId]);
 
   useEffect(() => {
     setOtherId('');
+    setReserveId('');
     setError(null);
   }, [kind]);
 
-  const byId = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const byId = useMemo(() => new Map([...accounts, ...reserves].map((a) => [a.id, a])), [accounts, reserves]);
   const liquid = accounts.filter((a) => a.accountClass?.isLiquid);
-  const nonLiquid = accounts.filter((a) => !a.accountClass?.isLiquid);
+  // Partners' own accounts are reached through "Partner drawing", never as an expense.
+  const nonLiquid = accounts.filter((a) => !a.accountClass?.isLiquid && !a.partnerId);
+  const bucketReserves = reserves.filter((a) => a.reserveKind === 'BUCKET');
+  const partnerEquities = accounts.filter((a) => a.partnerId && a.type === 'EQUITY');
+  const reserveOpts = (list: AccountRecord[]) =>
+    list.map((a) => ({ label: `${a.name} · ${formatMoney(a.balance)}`, value: a.id }));
   const opts = (list: AccountRecord[]) => list.map((a) => ({ label: accountLabel(a), value: a.id }));
 
   // "Received from" favours income; "paid for" favours expenses.
@@ -147,7 +181,11 @@ export default function NewEntryPanel({
         ? opts([...nonLiquid].sort(sortBy('EXPENSE')))
         : kind === 'TRANSFER'
           ? opts(liquid.filter((a) => a.id !== liquidId))
-          : opts(accounts.filter((a) => a.type === 'ASSET' || a.type === 'LIABILITY'));
+          : kind === 'PARTNER_DRAWING'
+            ? partnerEquities.map((a) => ({ label: a.name.replace(/ — .*$/, ''), value: a.id }))
+            : kind === 'RESERVE_TRANSFER'
+              ? reserveOpts(bucketReserves.filter((a) => a.id !== reserveId))
+              : opts(accounts.filter((a) => (a.type === 'ASSET' || a.type === 'LIABILITY') && !a.partnerId));
 
   const openingEquity = accounts.find((a) => a.systemKey === 'OPENING_BALANCE_EQUITY');
   const amountPaisa = isAmount(amount) ? toPaisa(amount) : 0n;
@@ -181,10 +219,18 @@ export default function NewEntryPanel({
             ]
           : [];
       case 'TRANSFER':
+      case 'PARTNER_DRAWING':
         return liquidId && otherId
           ? [
               { accountId: otherId, debit: amountPaisa, credit: 0n },
               { accountId: liquidId, debit: 0n, credit: amountPaisa },
+            ]
+          : [];
+      case 'RESERVE_TRANSFER':
+        return reserveId && otherId
+          ? [
+              { accountId: otherId, debit: amountPaisa, credit: 0n },
+              { accountId: reserveId, debit: 0n, credit: amountPaisa },
             ]
           : [];
       case 'OPENING_BALANCE': {
@@ -204,7 +250,21 @@ export default function NewEntryPanel({
       default:
         return [];
     }
-  }, [kind, lines, amountPaisa, liquidId, otherId, byId, openingEquity]);
+  }, [kind, lines, amountPaisa, liquidId, otherId, reserveId, byId, openingEquity]);
+
+  /**
+   * The earmark the ledger will release alongside this entry — shown in the
+   * preview, added by the API (never sent as lines).
+   */
+  const released = useMemo((): AccountRecord | null => {
+    if (!builtLines.length) return null;
+    if (kind === 'MONEY_OUT' && reserveId) return byId.get(reserveId) ?? null;
+    if (kind === 'PARTNER_DRAWING') {
+      const partnerId = byId.get(otherId)?.partnerId;
+      return reserves.find((r) => r.reserveKind === 'PARTNER' && r.partnerId === partnerId) ?? null;
+    }
+    return null;
+  }, [builtLines.length, kind, reserveId, otherId, byId, reserves]);
 
   const totalDebit = builtLines.reduce((s, l) => s + l.debit, 0n);
   const totalCredit = builtLines.reduce((s, l) => s + l.credit, 0n);
@@ -218,12 +278,13 @@ export default function NewEntryPanel({
       if (!account) continue;
       deltas.set(l.accountId, (deltas.get(l.accountId) ?? 0n) + normalDelta(account, l.debit, l.credit));
     }
+    if (released) deltas.set(released.id, (deltas.get(released.id) ?? 0n) - amountPaisa);
     return [...deltas.entries()].map(([id, delta]) => {
       const account = byId.get(id) as AccountRecord;
       const before = toPaisa(account.balance);
       return { account, before, delta, after: before + delta };
     });
-  }, [builtLines, byId]);
+  }, [builtLines, byId, released, amountPaisa]);
 
   async function submit() {
     setError(null);
@@ -256,6 +317,7 @@ export default function NewEntryPanel({
         ...(l.credit > 0n ? { credit: fromPaisa(l.credit) } : {}),
         ...(l.memo ? { memo: l.memo } : {}),
       })),
+      ...(kind === 'MONEY_OUT' && reserveId ? { reserveAccountId: reserveId } : {}),
     };
 
     setSubmitting(true);
@@ -274,7 +336,15 @@ export default function NewEntryPanel({
   const liquidLabel =
     kind === 'MONEY_IN' ? 'Received into' : kind === 'OPENING_BALANCE' ? 'Account' : 'Paid from';
   const otherLabel =
-    kind === 'MONEY_IN' ? 'Received from' : kind === 'MONEY_OUT' ? 'Paid for' : 'Moved to';
+    kind === 'MONEY_IN'
+      ? 'Received from'
+      : kind === 'MONEY_OUT'
+        ? 'Paid for'
+        : kind === 'PARTNER_DRAWING'
+          ? 'Drawn by'
+          : kind === 'RESERVE_TRANSFER'
+            ? 'To reserve'
+            : 'Moved to';
 
   return (
     <Modal
@@ -354,15 +424,26 @@ export default function NewEntryPanel({
         {kind !== 'GENERAL' ? (
           <>
             <div className="grid gap-4 md:grid-cols-2">
-              {kind !== 'OPENING_BALANCE' && (
+              {kind === 'RESERVE_TRANSFER' ? (
                 <Select
-                  label={liquidLabel}
+                  label="From reserve"
                   required
-                  placeholder={loadingAccounts ? 'Loading…' : unitId ? 'Cash, bank or wallet' : 'Choose a unit first'}
-                  value={liquidId}
-                  onChange={setLiquidId}
-                  options={opts(liquid)}
+                  placeholder={loadingAccounts ? 'Loading…' : unitId ? 'Reserve' : 'Choose a unit first'}
+                  value={reserveId}
+                  onChange={setReserveId}
+                  options={reserveOpts(bucketReserves)}
                 />
+              ) : (
+                kind !== 'OPENING_BALANCE' && (
+                  <Select
+                    label={liquidLabel}
+                    required
+                    placeholder={loadingAccounts ? 'Loading…' : unitId ? 'Cash, bank or wallet' : 'Choose a unit first'}
+                    value={liquidId}
+                    onChange={setLiquidId}
+                    options={opts(liquid)}
+                  />
+                )
               )}
               <Select
                 label={kind === 'OPENING_BALANCE' ? 'Account' : otherLabel}
@@ -392,6 +473,21 @@ export default function NewEntryPanel({
                 onChange={(e) => setReference(e.target.value)}
               />
             </div>
+            {kind === 'MONEY_OUT' && bucketReserves.length > 0 && (
+              <Select
+                label="Paid out of reserve"
+                placeholder="Not from a reserve"
+                value={reserveId}
+                onChange={setReserveId}
+                options={[{ label: 'Not from a reserve', value: '' }, ...reserveOpts(bucketReserves)]}
+              />
+            )}
+            {released && toPaisa(released.balance) < amountPaisa && (
+              <p className="-mt-2 rounded-md border border-warning-200 bg-warning-25 px-3 py-2 text-xs text-warning-800">
+                {released.name} holds {formatMoney(released.balance)} — this takes it below zero. That’s allowed (the workbook
+                does it too), but it means more is being spent than was set aside.
+              </p>
+            )}
           </>
         ) : (
           <JournalGrid lines={lines} setLines={setLines} options={opts(accounts)} disabled={!unitId} />

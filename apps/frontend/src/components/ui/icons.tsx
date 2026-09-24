@@ -231,3 +231,21 @@ export function UnitsIcon({ fill = 'currentColor' }: { fill?: string }) {
     </svg>
   );
 }
+
+/** The waterfall: one day's income splitting into buckets. */
+export function AllocationIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path
+        d="M9 3.5h8M13 3.5v5M13 8.5c-4 0-7.5 1.5-7.5 5v2M13 8.5v7M13 8.5c4 0 7.5 1.5 7.5 5v2"
+        stroke={fill}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="3" y="15.5" width="5" height="7" rx="1.2" stroke={fill} strokeWidth="1.8" />
+      <rect x="10.5" y="15.5" width="5" height="7" rx="1.2" stroke={fill} strokeWidth="1.8" />
+      <rect x="18" y="15.5" width="5" height="7" rx="1.2" stroke={fill} strokeWidth="1.8" />
+    </svg>
+  );
+}

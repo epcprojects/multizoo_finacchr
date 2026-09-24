@@ -8,7 +8,13 @@ export type EntryKind =
   | 'TRANSFER'
   | 'OPENING_BALANCE'
   | 'GENERAL'
-  | 'REVERSAL';
+  | 'REVERSAL'
+  | 'ALLOCATION'
+  | 'RESERVE_TRANSFER'
+  | 'PARTNER_DRAWING';
+
+/** BUCKET (Feed…), PARTNER (a partner's profit reserve), OFFSET (Earmarked Funds). */
+export type ReserveKind = 'BUCKET' | 'PARTNER' | 'OFFSET';
 
 export const UNIT_RULE_LABELS: Record<UnitRule, string> = {
   UNIT_REQUIRED: 'Belongs to a business unit',
@@ -107,6 +113,9 @@ export const KIND_LABELS: Record<EntryKind, string> = {
   OPENING_BALANCE: 'Opening balance',
   GENERAL: 'General journal',
   REVERSAL: 'Reversal',
+  ALLOCATION: 'Allocation',
+  RESERVE_TRANSFER: 'Reserve transfer',
+  PARTNER_DRAWING: 'Partner drawing',
 };
 
 export interface BusinessUnitRecord {
@@ -138,6 +147,8 @@ export interface AccountRecord {
   parentName: string | null;
   businessUnit: { id: string; code: string; name: string } | null;
   isDebitNormal: boolean;
+  partnerId: string | null;
+  reserveKind: ReserveKind | null;
   balance: string;
 }
 
@@ -149,6 +160,7 @@ export interface EntryLine {
   accountName: string;
   accountClassName: string | null;
   isLiquid: boolean;
+  reserveKind: ReserveKind | null;
   debit: string;
   credit: string;
   memo: string | null;
@@ -251,8 +263,10 @@ export interface NewEntryPayload {
   businessUnitId: string;
   description: string;
   reference?: string;
-  kind: Exclude<EntryKind, 'REVERSAL'>;
+  kind: Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION'>;
   lines: { accountId: string; debit?: string; credit?: string; memo?: string }[];
+  /** Money out only: the reserve this payment is paid out of. */
+  reserveAccountId?: string;
 }
 
 // --- Business units ---------------------------------------------------------

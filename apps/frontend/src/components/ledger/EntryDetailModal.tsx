@@ -64,7 +64,9 @@ export default function EntryDetailModal({
     }
   }
 
-  const reversible = entry && !entry.reversedById && entry.kind !== 'REVERSAL';
+  // A day's waterfall is undone from the Allocation screen, which keeps the day's record in step.
+  const fromEngine = entry?.source === 'ALLOCATION';
+  const reversible = entry && !entry.reversedById && entry.kind !== 'REVERSAL' && !fromEngine;
 
   return (
     <Modal
@@ -148,6 +150,16 @@ export default function EntryDetailModal({
 
           {error && (
             <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          )}
+
+          {fromEngine && !entry.reversedById && entry.businessUnit && (
+            <p className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+              This is a day&apos;s income allocation. To change it, re-run or undo the day on the{' '}
+              <Link href={`/allocation/${entry.businessUnit.id}`} className="font-medium underline">
+                Allocation screen
+              </Link>
+              .
+            </p>
           )}
 
           {canReverse && reversible && (

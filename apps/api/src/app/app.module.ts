@@ -12,6 +12,7 @@ import { BusinessUnitsModule } from './modules/business-units/business-units.mod
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { JournalModule } from './modules/journal/journal.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
+import { AllocationModule } from './modules/allocation/allocation.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
@@ -38,6 +39,7 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
     AccountsModule,
     JournalModule,
     LedgerModule,
+    AllocationModule,
   ],
   controllers: [AppController],
   providers: [

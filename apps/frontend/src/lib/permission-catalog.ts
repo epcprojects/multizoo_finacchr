@@ -14,7 +14,7 @@ export const PERMISSION_CATALOG = [
   { label: 'Approve disciplinary fine', value: 'disciplinary.approve' },
   { label: 'Manage employee records', value: 'employee.manage' },
   { label: 'Run payroll', value: 'payroll.run' },
-  { label: 'Edit allocation rules', value: 'rules.edit_allocation' },
+  { label: 'Approve allocation & profit-share rules', value: 'rules.edit_allocation' },
   { label: 'Edit HR policy rules', value: 'rules.edit_hr_policy' },
   { label: 'Approve loans', value: 'loans.approve' },
   { label: 'Initiate loans', value: 'loans.initiate' },
@@ -27,6 +27,8 @@ export const PERMISSION_CATALOG = [
   { label: 'Add & edit business units', value: 'business_units.manage' },
   { label: 'Edit chart of accounts', value: 'accounts.manage' },
   { label: 'Reverse posted entries', value: 'transactions.reverse' },
+  { label: 'Propose allocation rule changes (need approval)', value: 'rules.propose_allocation' },
+  { label: 'Run the daily income allocation', value: 'allocation.run' },
 ];
 
 const MODULE_LABELS: Record<string, string> = {
@@ -46,6 +48,7 @@ const MODULE_LABELS: Record<string, string> = {
   units: 'Business Units',
   business_units: 'Business Units',
   accounts: 'Chart of Accounts',
+  allocation: 'Income Allocation',
 };
 
 export type PermissionModule = {

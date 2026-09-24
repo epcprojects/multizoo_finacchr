@@ -66,4 +66,22 @@ export class Account extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   description!: string | null;
+
+  /**
+   * Set on a partner's own accounts: their group-wide capital & current
+   * account (equity) and their profit reserve in each unit. Module 3.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  partnerId!: string | null;
+
+  /**
+   * The unit's "Earmarked funds" offset — the other side of every earmark.
+   * Reserves are cash set aside, not extra cash: allocating Rs 100 to Feed
+   * debits Feed Reserve and credits this, so the unit's assets don't change
+   * and cash-in-hand stays put (Follow the Rupee, step 2). Its balance is
+   * always minus the sum of the unit's reserves. One per unit, reserve class.
+   */
+  @Column({ default: false })
+  isReserveOffset!: boolean;
 }

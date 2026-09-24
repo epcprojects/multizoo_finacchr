@@ -19,6 +19,7 @@ import {
   visibleUnitIds,
 } from '../../../common/scope/unit-scope';
 import { runningBalances, toNormalBalance } from '../journal/ledger-math';
+import { reserveKind } from '../accounts/reserves';
 import { formatEntryNo } from '../journal/journal.service';
 import { CreateReconciliationDto } from './dto/ledger.dto';
 
@@ -447,6 +448,9 @@ export class LedgerService {
         ? { id: a.businessUnit.id, code: a.businessUnit.code, name: a.businessUnit.name }
         : null,
       isDebitNormal: a.type === AccountType.ASSET || a.type === AccountType.EXPENSE,
+      partnerId: a.partnerId,
+      /** BUCKET (Feed…), PARTNER (a partner's profit reserve), OFFSET (Earmarked Funds), or null. */
+      reserveKind: reserveKind(a),
     };
   }
 }

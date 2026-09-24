@@ -49,6 +49,11 @@ export enum Permission {
   BUSINESS_UNITS_MANAGE = 'business_units.manage',
   ACCOUNTS_MANAGE = 'accounts.manage',
   TRANSACTIONS_REVERSE = 'transactions.reverse',
+  // Module 3 — Income allocation engine
+  /** Draft and submit allocation / profit-share rule changes (they wait for approval). */
+  RULES_PROPOSE_ALLOCATION = 'rules.propose_allocation',
+  /** Post the day's allocation (the waterfall) for a unit. */
+  ALLOCATION_RUN = 'allocation.run',
 }
 
 // ---------------------------------------------------------------------------
@@ -120,11 +125,58 @@ export enum JournalEntryKind {
   OPENING_BALANCE = 'OPENING_BALANCE',
   GENERAL = 'GENERAL',
   REVERSAL = 'REVERSAL',
+  /** The daily waterfall — posted only by the allocation engine. */
+  ALLOCATION = 'ALLOCATION',
+  /** Moving an earmark from one reserve to another (e.g. Capital → Utilities). */
+  RESERVE_TRANSFER = 'RESERVE_TRANSFER',
+  /** Cash a partner takes against their own equity. */
+  PARTNER_DRAWING = 'PARTNER_DRAWING',
 }
 
-/** Where an entry came from — later modules add ALLOCATION, PAYROLL, … */
+/** Where an entry came from — later modules add PAYROLL, … */
 export enum JournalEntrySource {
   MANUAL = 'MANUAL',
   SYSTEM = 'SYSTEM',
   IMPORT = 'IMPORT',
+  ALLOCATION = 'ALLOCATION',
+}
+
+// ---------------------------------------------------------------------------
+// Income allocation (Module 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * A rule version's life: drafted → submitted → approved (or rejected /
+ * withdrawn). Approved versions are never edited; a change is a new version
+ * with a later effective date. SUPERSEDED marks an approved version that was
+ * replaced before it ever applied to a day (same effective date).
+ */
+export enum AllocationRuleStatus {
+  DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+/** How a tranche divides its money among its lines. */
+export enum AllocationMethod {
+  /** Each line is a % of the tranche; the lines total exactly 100%. */
+  PERCENT = 'PERCENT',
+  /** A ratio of parts (25∶40) — splits exactly, whatever the parts add up to. */
+  PARTS = 'PARTS',
+}
+
+/** Where a waterfall line's money is earmarked. */
+export enum AllocationTargetType {
+  /** One of the unit's reserve buckets (Feed, Salary, …). */
+  RESERVE = 'RESERVE',
+  /** A partner's profit reserve in this unit. */
+  PARTNER = 'PARTNER',
+}
+
+export enum AllocationRunStatus {
+  POSTED = 'POSTED',
+  REVERSED = 'REVERSED',
 }

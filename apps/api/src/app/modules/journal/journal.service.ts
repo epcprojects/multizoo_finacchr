@@ -22,6 +22,7 @@ import {
   visibleUnitIds,
 } from '../../../common/scope/unit-scope';
 import { assertBalanced, swapSides, UnbalancedEntryError } from './ledger-math';
+import { ensureReserveOffset, isBucketReserve, reserveKind } from '../accounts/reserves';
 import {
   ListJournalEntriesQueryDto,
   ReverseJournalEntryDto,
@@ -33,23 +34,36 @@ export interface PostEntryInput {
   description: string;
   reference?: string | null;
   kind: JournalEntryKind;
-  lines: {
-    accountId: string;
-    debit?: string | null;
-    credit?: string | null;
-    memo?: string | null;
-  }[];
+  lines: EntryLineInput[];
   reversalOfId?: string | null;
+  /**
+   * Money out only: the reserve this payment comes out of (e.g. feed paid
+   * from Feed Reserve). The earmark is released in the same entry.
+   */
+  reserveAccountId?: string | null;
+}
+
+interface EntryLineInput {
+  accountId: string;
+  debit?: string | null;
+  credit?: string | null;
+  memo?: string | null;
 }
 
 export interface PostOptions {
   /** Run inside a caller's transaction (e.g. the business-unit wizard). */
   manager?: EntityManager;
   source?: JournalEntrySource;
-  /** Only the allocation engine and reversals may touch reserve accounts. */
+  /** Only the allocation engine and reversals may touch reserve accounts freely. */
   allowReserve?: boolean;
   /** Reversals must still work after an account is deactivated. */
   allowInactiveAccounts?: boolean;
+}
+
+export interface ReverseOptions {
+  /** Waterfall entries are undone from the Allocation screen, which keeps its run record in step. */
+  fromAllocationEngine?: boolean;
+  source?: JournalEntrySource;
 }
 
 export function formatEntryNo(entryNo: number): string {
@@ -115,17 +129,23 @@ export class JournalService {
       throw new BadRequestException((err as Error).message);
     }
 
-    const accountIds = [...new Set(input.lines.map((l) => l.accountId))];
-    const accounts = await m.find(Account, {
-      where: { id: In(accountIds) },
-      relations: { accountClass: true },
-    });
-    const byId = new Map(accounts.map((a) => [a.id, a]));
-
+    const byId = await this.loadAccounts(m, input.lines.map((l) => l.accountId));
     for (const line of input.lines) {
-      const account = byId.get(line.accountId);
-      if (!account)
+      if (!byId.has(line.accountId))
         throw new BadRequestException(`Account ${line.accountId} not found`);
+    }
+
+    this.assertKindShape(input, byId);
+
+    // Reserve movements a person's entry implies (paying from a reserve, a
+    // drawing releasing a partner's reserve) are added here, by the ledger —
+    // never typed in — so the earmarks always follow the money.
+    const { lines, allowedReserveIds } = opts.allowReserve
+      ? { lines: input.lines, allowedReserveIds: new Set<string>() }
+      : await this.withReserveMovements(m, unit, input, byId, user.id);
+
+    for (const line of lines) {
+      const account = byId.get(line.accountId) as Account;
       if (!account.isActive && !opts.allowInactiveAccounts) {
         throw new BadRequestException(`${account.name} is inactive.`);
       }
@@ -134,9 +154,13 @@ export class JournalService {
           `${account.name} is a group heading — post to one of its sub-accounts.`,
         );
       }
-      if (account.accountClass.isReserve && !opts.allowReserve) {
+      if (
+        account.accountClass.isReserve &&
+        !opts.allowReserve &&
+        !allowedReserveIds.has(account.id)
+      ) {
         throw new BadRequestException(
-          `${account.name} is a reserve — reserves are moved only by the income allocation engine.`,
+          `${account.name} is a reserve — reserves are filled only by the income allocation engine. To spend from one, choose it under “Paid out of reserve”.`,
         );
       }
       if (account.businessUnitId && account.businessUnitId !== unit.id) {
@@ -145,8 +169,6 @@ export class JournalService {
         );
       }
     }
-
-    this.assertKindShape(input, byId);
 
     const entry = m.create(JournalEntry, {
       entryDate: input.entryDate,
@@ -159,7 +181,7 @@ export class JournalService {
       reversedById: null,
       createdBy: user.id,
       updatedBy: null,
-      lines: input.lines.map((line, i) =>
+      lines: lines.map((line, i) =>
         m.create(JournalLine, {
           lineNo: i + 1,
           accountId: line.accountId,
@@ -173,6 +195,90 @@ export class JournalService {
     });
 
     return m.save(entry);
+  }
+
+  private async loadAccounts(m: EntityManager, ids: string[]) {
+    const accounts = ids.length
+      ? await m.find(Account, {
+          where: { id: In([...new Set(ids)]) },
+          relations: { accountClass: true },
+        })
+      : [];
+    return new Map(accounts.map((a) => [a.id, a]));
+  }
+
+  /**
+   * The earmark side of an everyday entry:
+   *  - money out "paid out of" a reserve releases that much of the reserve;
+   *  - a partner drawing releases the partner's profit reserve in the unit
+   *    (the "Taken by …" withdrawals in the workbook's profit-reserve blocks);
+   *  - a reserve transfer moves an earmark between two buckets.
+   * Released lines go against the unit's Earmarked Funds offset, so cash is
+   * counted once — see accounts/reserves.ts.
+   */
+  private async withReserveMovements(
+    m: EntityManager,
+    unit: BusinessUnit,
+    input: PostEntryInput,
+    byId: Map<string, Account>,
+    actorId: string,
+  ): Promise<{ lines: EntryLineInput[]; allowedReserveIds: Set<string> }> {
+    const lines = [...input.lines];
+    const allowed = new Set<string>();
+    const sumSide = (side: 'debit' | 'credit', pick: (a: Account) => boolean) =>
+      input.lines.reduce(
+        (s, l) => (l[side] && pick(byId.get(l.accountId) as Account) ? s + toPaisa(l[side] as string) : s),
+        0n,
+      );
+
+    const release = async (reserve: Account, amount: bigint, memo: string) => {
+      const offset = await ensureReserveOffset(m, unit, actorId);
+      const full = await m.findOneOrFail(Account, { where: { id: offset.id }, relations: { accountClass: true } });
+      byId.set(full.id, full);
+      byId.set(reserve.id, reserve);
+      allowed.add(full.id).add(reserve.id);
+      lines.push(
+        { accountId: full.id, debit: fromPaisa(amount), memo },
+        { accountId: reserve.id, credit: fromPaisa(amount), memo },
+      );
+    };
+
+    if (input.reserveAccountId) {
+      if (input.kind !== JournalEntryKind.MONEY_OUT) {
+        throw new BadRequestException('Only a money-out entry can be paid out of a reserve.');
+      }
+      const reserve = await m.findOne(Account, {
+        where: { id: input.reserveAccountId },
+        relations: { accountClass: true },
+      });
+      if (!reserve || !isBucketReserve(reserve) || reserve.businessUnitId !== unit.id || !reserve.isActive) {
+        throw new BadRequestException(`Choose one of ${unit.name}'s reserves to pay out of.`);
+      }
+      const paid = sumSide('credit', (a) => a.accountClass.isLiquid);
+      await release(reserve, paid, `Paid out of ${reserve.name}`);
+    }
+
+    if (input.kind === JournalEntryKind.PARTNER_DRAWING) {
+      const equity = input.lines
+        .map((l) => byId.get(l.accountId) as Account)
+        .find((a) => a.partnerId);
+      const reserve = equity
+        ? await m.findOne(Account, {
+            where: { businessUnitId: unit.id, partnerId: equity.partnerId as string },
+            relations: { accountClass: true },
+          })
+        : null;
+      if (reserve?.isActive) {
+        const drawn = sumSide('credit', (a) => a.accountClass.isLiquid);
+        await release(reserve, drawn, `Drawn by ${equity?.name.replace(/ — .*$/, '')}`);
+      }
+    }
+
+    if (input.kind === JournalEntryKind.RESERVE_TRANSFER) {
+      input.lines.forEach((l) => allowed.add(l.accountId));
+    }
+
+    return { lines, allowedReserveIds: allowed };
   }
 
   /**
@@ -208,6 +314,11 @@ export class JournalService {
             'Money out must be paid from a cash, bank or wallet account to a non-cash account (e.g. an expense).',
           );
         }
+        if (debits.some((l) => (byId.get(l.accountId) as Account).partnerId)) {
+          throw new BadRequestException(
+            'Cash taken by a partner is a partner drawing, not an expense — use “Partner drawing”.',
+          );
+        }
         break;
       case JournalEntryKind.TRANSFER:
         if (!input.lines.every((l) => isLiquid(l.accountId))) {
@@ -226,6 +337,38 @@ export class JournalService {
           throw new BadRequestException(
             'An opening balance must be offset against Opening Balance Equity.',
           );
+        }
+        break;
+      case JournalEntryKind.PARTNER_DRAWING: {
+        const partners = new Set(
+          debits.map((l) => {
+            const a = byId.get(l.accountId) as Account;
+            return a.partnerId && a.type === AccountType.EQUITY ? a.partnerId : null;
+          }),
+        );
+        if (
+          !debits.length ||
+          partners.has(null) ||
+          partners.size !== 1 ||
+          !credits.length ||
+          !credits.every((l) => isLiquid(l.accountId))
+        ) {
+          throw new BadRequestException(
+            "A drawing is paid from cash, bank or wallet to one partner's capital & current account.",
+          );
+        }
+        break;
+      }
+      case JournalEntryKind.RESERVE_TRANSFER:
+        if (!input.lines.every((l) => isBucketReserve(byId.get(l.accountId) as Account))) {
+          throw new BadRequestException(
+            "A reserve transfer moves an earmark between this unit's reserve buckets — nothing else.",
+          );
+        }
+        break;
+      case JournalEntryKind.ALLOCATION:
+        if (!input.lines.every((l) => (byId.get(l.accountId) as Account).accountClass.isReserve)) {
+          throw new BadRequestException('An allocation only moves earmarks between reserves.');
         }
         break;
       default:
@@ -250,6 +393,7 @@ export class JournalService {
     id: string,
     dto: ReverseJournalEntryDto,
     user: AuthenticatedUser,
+    opts: ReverseOptions = {},
   ): Promise<string> {
     // Row lock: two people clicking "Reverse" at once must not both succeed.
     const original = await m.findOne(JournalEntry, {
@@ -259,6 +403,11 @@ export class JournalService {
     if (!original) throw new NotFoundException('Entry not found');
     assertUnitAccess(user, original.businessUnitId);
 
+    if (original.source === JournalEntrySource.ALLOCATION && !opts.fromAllocationEngine) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} is a day's income allocation — undo or re-run it from the Allocation screen so the day's record stays in step.`,
+      );
+    }
     if (original.kind === JournalEntryKind.REVERSAL) {
       throw new BadRequestException(
         'A reversal cannot itself be reversed — post a new, correct entry instead.',
@@ -305,7 +454,7 @@ export class JournalService {
       {
         allowReserve: true,
         allowInactiveAccounts: true,
-        source: original.source,
+        source: opts.source ?? original.source,
       },
     );
 
@@ -449,6 +598,7 @@ export class JournalService {
           accountName: l.account?.name,
           accountClassName: l.account?.accountClass?.name ?? null,
           isLiquid: l.account?.accountClass?.isLiquid ?? false,
+          reserveKind: l.account ? reserveKind(l.account) : null,
           debit: l.debit,
           credit: l.credit,
           memo: l.memo,

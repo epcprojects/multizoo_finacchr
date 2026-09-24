@@ -21,10 +21,12 @@ import { GetUser } from '../../../common/decorators/get-user.decorator';
 import { hasPermission } from '../../../common/scope/unit-scope';
 import type { AuthenticatedUser } from '../users/users.service';
 
-/** Opening balances and free-form journals are the accountant's tools. */
+/** Opening balances, free-form journals, drawings and reserve moves are the accountant's tools. */
 const ACCOUNTANT_ONLY_KINDS = [
   JournalEntryKind.OPENING_BALANCE,
   JournalEntryKind.GENERAL,
+  JournalEntryKind.PARTNER_DRAWING,
+  JournalEntryKind.RESERVE_TRANSFER,
 ];
 
 @ApiTags('journal-entries')
@@ -57,7 +59,7 @@ export class JournalController {
       !hasPermission(user, Permission.LEDGER_RECONCILE)
     ) {
       throw new ForbiddenException(
-        'Opening balances and general journal entries require the ledger.reconcile permission.',
+        'Opening balances, general journals, partner drawings and reserve transfers require the ledger.reconcile permission.',
       );
     }
     return this.journalService.post(dto, user);

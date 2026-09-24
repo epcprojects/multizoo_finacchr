@@ -19,6 +19,7 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.PNL_VIEW_CONSOLIDATED,
       P.PNL_VIEW_OWN_SHARE,
       P.RULES_EDIT_ALLOCATION,
+      P.RULES_PROPOSE_ALLOCATION,
       P.LOANS_APPROVE,
       P.REPORTS_GENERATE,
       P.USERS_INVITE,
@@ -48,6 +49,9 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.BUSINESS_UNITS_MANAGE,
       P.ACCOUNTS_MANAGE,
       P.TRANSACTIONS_REVERSE,
+      // Allocation rules: "approval only" — drafts and submits; a Partner approves.
+      P.RULES_PROPOSE_ALLOCATION,
+      P.ALLOCATION_RUN,
     ],
   },
   [SeedRoleName.BRANCH_MANAGER]: {

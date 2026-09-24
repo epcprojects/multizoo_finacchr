@@ -36,6 +36,7 @@ import {
   provisionUnitAccounts,
   RESERVE_BUCKET_CATALOG,
 } from '../accounts/chart-of-accounts';
+import { isBucketReserve } from '../accounts/reserves';
 import {
   AddUnitAccountsDto,
   CreateBusinessUnitDto,
@@ -93,7 +94,7 @@ export class BusinessUnitsService {
         createdAt: u.createdAt,
         accountCount: own.length,
         reserveBuckets: own
-          .filter((a) => a.accountClass.isReserve && a.isActive)
+          .filter((a) => isBucketReserve(a) && a.isActive)
           .map((a) => a.name.replace(/ Reserve$/, '')),
       };
     });
