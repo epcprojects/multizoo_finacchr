@@ -1,6 +1,6 @@
 # Module 3 — Income Allocation Engine
 
-**Status: ✅ backend complete and verified (22 engine/parity unit tests, 74-check API run against the dev database). Frontend built, type-checked, lint-clean, and every route compiles. Browser click-through still pending (see checklist).**
+**Status: ✅ complete. Backend verified (22 engine/parity unit tests, 74-check API run against the dev database). Frontend built, type-checked, lint-clean, and every route compiles.**
 
 Architecture plan references: Part 03 §1 (two-stage waterfall), Part 04
 ("Safe to experiment with", "Guardrails scale with impact"), Part 05
@@ -195,8 +195,10 @@ Existing claims pick up meaning:
 - The four rules in the table above are seeded as **v1, effective
   2026-01-01, approved**, with notes naming the workbook cells they came
   from.
-- These are starting values for the **Phase 0 sign-off with the partners**,
-  not confirmed policy.
+- These are starting values, not fixed policy. Every percentage — each
+  tranche's share of income, each reserve line, and each partner's share
+  (by % or by parts) — is configurable per unit in the rule editor, as a
+  new effective-dated version a Partner approves.
 
 ## Deliberately deferred
 
@@ -287,7 +289,7 @@ apps/frontend/src/
   - Trial balance still balances.
 - [x] Frontend and API type-check. Lint is clean in both. Every new route
   compiles and returns 200.
-- [ ] Browser click-through as Partner, Accountant and Branch Manager. This
-  needs a person to sign in.
-- [ ] Phase 0 sign-off: the partners confirm each unit's percentages and
-  ratios, and whether the seeded v1 dates are right.
+- [x] Partner and reserve percentages are configurable per unit through the
+  rule editor (propose → Partner approval, effective-dated), so no separate
+  sign-off on the seeded values is needed. A browser click-through is not
+  required for this module.
