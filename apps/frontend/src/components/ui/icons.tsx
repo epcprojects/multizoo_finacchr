@@ -343,3 +343,29 @@ export function PayrollIcon({ fill = 'currentColor' }: { fill?: string }) {
     </svg>
   );
 }
+
+export function LoansIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M4 9h14.5M15 5.5 18.5 9 15 12.5" stroke={fill} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M22 17H7.5M11 13.5 7.5 17l3.5 3.5" stroke={fill} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function UtilitiesIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M14.5 3.5 6.5 14.5h6l-1 8 8-11h-6l1-8Z" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function CostCentreIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M4 5.5v6.2c0 .5.2 1 .6 1.4l8.3 8.3a2 2 0 0 0 2.8 0l5.5-5.5a2 2 0 0 0 0-2.8L12.9 4.8a2 2 0 0 0-1.4-.6H5.3C4.6 4.2 4 4.8 4 5.5Z" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="8.5" cy="8.7" r="1.5" fill={fill} />
+    </svg>
+  );
+}

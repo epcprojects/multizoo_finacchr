@@ -5,12 +5,13 @@ import { JournalLine } from './entities/journal-line.entity';
 import { Account } from '../accounts/entities/account.entity';
 import { BusinessUnit } from '../business-units/entities/business-unit.entity';
 import { User } from '../users/entities/user.entity';
+import { CostCentre } from '../cost-centres/entities/cost-centre.entity';
 import { JournalService } from './journal.service';
 import { JournalController } from './journal.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JournalEntry, JournalLine, Account, BusinessUnit, User]),
+    TypeOrmModule.forFeature([JournalEntry, JournalLine, Account, BusinessUnit, User, CostCentre]),
   ],
   controllers: [JournalController],
   providers: [JournalService],

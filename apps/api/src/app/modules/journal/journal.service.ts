@@ -7,6 +7,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
   AccountType,
+  CostCentreCharge,
   JournalEntryKind,
   JournalEntrySource,
 } from '@multizoo/types';
@@ -22,7 +23,9 @@ import {
   visibleUnitIds,
 } from '../../../common/scope/unit-scope';
 import { assertBalanced, swapSides, UnbalancedEntryError } from './ledger-math';
-import { ensureReserveOffset, isBucketReserve, reserveKind } from '../accounts/reserves';
+import { ensurePartnerEquity, ensureReserveOffset, isBucketReserve, reserveKind } from '../accounts/reserves';
+import { CostCentre } from '../cost-centres/entities/cost-centre.entity';
+import { Partner } from '../allocation/entities/partner.entity';
 import {
   ListJournalEntriesQueryDto,
   ReverseJournalEntryDto,
@@ -41,13 +44,21 @@ export interface PostEntryInput {
    * from Feed Reserve). The earmark is released in the same entry.
    */
   reserveAccountId?: string | null;
+  /**
+   * Spending only: the cost centre it's for. Its expense lines are tagged;
+   * a centre charged to a partner is routed to their capital & current
+   * account, out of their profit (Module 6, Fig. 12).
+   */
+  costCentreId?: string | null;
 }
 
-interface EntryLineInput {
+export interface EntryLineInput {
   accountId: string;
   debit?: string | null;
   credit?: string | null;
   memo?: string | null;
+  costCentreId?: string | null;
+  crossCharge?: boolean;
 }
 
 export interface PostOptions {
@@ -65,6 +76,10 @@ export interface ReverseOptions {
   fromAllocationEngine?: boolean;
   /** Payroll, advance and settlement entries are undone from the Payroll screens, for the same reason. */
   fromPayroll?: boolean;
+  /** Loan and inter-unit movements are undone from the Loans screens. */
+  fromLoans?: boolean;
+  /** A utility bill's entries are undone by unposting the bill. */
+  fromUtilities?: boolean;
   source?: JournalEntrySource;
 }
 
@@ -165,6 +180,15 @@ export class JournalService {
           `${account.name} is a reserve — reserves are filled only by the income allocation engine. To spend from one, choose it under “Paid out of reserve”.`,
         );
       }
+      if (
+        account.loanId &&
+        opts.source !== JournalEntrySource.LOANS &&
+        opts.source !== JournalEntrySource.UTILITIES
+      ) {
+        throw new BadRequestException(
+          `${account.name} is a loan account — record lending, borrowing and repayments from the Loans screen, so the loan's history stays complete.`,
+        );
+      }
       if (account.businessUnitId && account.businessUnitId !== unit.id) {
         throw new BadRequestException(
           `${account.name} (${account.code}) belongs to another business unit. Moving money between units is an inter-unit transfer, which needs Partner approval.`,
@@ -191,7 +215,8 @@ export class JournalService {
           debit: fromPaisa(line.debit ? toPaisa(line.debit) : 0n),
           credit: fromPaisa(line.credit ? toPaisa(line.credit) : 0n),
           memo: line.memo?.trim() || null,
-          costCentre: null,
+          costCentreId: line.costCentreId ?? null,
+          crossCharge: line.crossCharge ?? false,
         }),
       ),
     });
@@ -280,7 +305,86 @@ export class JournalService {
       input.lines.forEach((l) => allowed.add(l.accountId));
     }
 
+    if (input.costCentreId) {
+      await this.routeCostCentre(m, unit, input, lines, byId, actorId, release);
+    }
+
     return { lines, allowedReserveIds: allowed };
+  }
+
+  /**
+   * Tags an entry's expense lines with its cost centre. A centre charged to
+   * a partner is then routed off the unit's P&L, the way the "342" sheets
+   * are "Paid from Zoo MIK Profit":
+   *
+   *   Dr MIK — Capital & Current      (crossCharge)
+   *      Cr each tagged expense       (crossCharge — nets the unit's P&L)
+   *   Dr Earmarked Funds / Cr MIK Profit Reserve   (cash out only, as a drawing)
+   *
+   * The expense lines stay, so the centre's spending is still reported by
+   * category.
+   */
+  private async routeCostCentre(
+    m: EntityManager,
+    unit: BusinessUnit,
+    input: PostEntryInput,
+    lines: EntryLineInput[],
+    byId: Map<string, Account>,
+    actorId: string,
+    release: (reserve: Account, amount: bigint, memo: string) => Promise<void>,
+  ) {
+    const centre = await m.findOne(CostCentre, { where: { id: input.costCentreId as string } });
+    if (!centre || !centre.isActive) throw new BadRequestException('Choose an active cost centre.');
+    if (centre.businessUnitId && centre.businessUnitId !== unit.id) {
+      throw new BadRequestException(`Cost centre ${centre.code} is for another unit's spending only.`);
+    }
+    if (input.kind !== JournalEntryKind.MONEY_OUT && input.kind !== JournalEntryKind.GENERAL) {
+      throw new BadRequestException('Only spending carries a cost centre — use a money-out or general entry.');
+    }
+    const tagged: { index: number; amount: bigint }[] = [];
+    lines.forEach((l, index) => {
+      const account = byId.get(l.accountId) as Account;
+      if (account.type === AccountType.EXPENSE && l.debit && toPaisa(l.debit) > 0n) {
+        tagged.push({ index, amount: toPaisa(l.debit) });
+        lines[index] = { ...l, costCentreId: centre.id };
+      }
+    });
+    if (!tagged.length) {
+      throw new BadRequestException(`Tag ${centre.code} on an entry that pays an expense.`);
+    }
+    if (centre.chargeTo !== CostCentreCharge.PARTNER) return;
+
+    if (input.reserveAccountId) {
+      throw new BadRequestException(
+        `${centre.code} is paid out of a partner's profit — don't choose a reserve to pay it from as well.`,
+      );
+    }
+    const partner = await m.findOne(Partner, { where: { id: centre.partnerId as string } });
+    if (!partner) throw new BadRequestException(`Cost centre ${centre.code} has no partner to charge.`);
+    const equity = await ensurePartnerEquity(m, partner, actorId);
+    const equityFull = await m.findOneOrFail(Account, { where: { id: equity.id }, relations: { accountClass: true } });
+    byId.set(equityFull.id, equityFull);
+    const memo = `${centre.code} — charged to ${partner.shortName}`;
+    const total = tagged.reduce((s, t) => s + t.amount, 0n);
+    for (const t of tagged) {
+      lines.push({ accountId: lines[t.index].accountId, credit: fromPaisa(t.amount), memo, costCentreId: centre.id, crossCharge: true });
+    }
+    lines.push({ accountId: equityFull.id, debit: fromPaisa(total), memo, costCentreId: centre.id, crossCharge: true });
+
+    if (input.kind === JournalEntryKind.MONEY_OUT) {
+      const reserve = await m.findOne(Account, {
+        where: { businessUnitId: unit.id, partnerId: partner.id },
+        relations: { accountClass: true },
+      });
+      if (reserve?.isActive) {
+        const paid = input.lines.reduce(
+          (s, l) => (l.credit && (byId.get(l.accountId) as Account).accountClass.isLiquid ? s + toPaisa(l.credit) : s),
+          0n,
+        );
+        const amount = paid < total ? paid : total;
+        if (amount > 0n) await release(reserve, amount, `Paid from ${partner.shortName}'s profit — ${centre.code}`);
+      }
+    }
   }
 
   /**
@@ -410,6 +514,16 @@ export class JournalService {
         `${formatEntryNo(original.entryNo)} is a day's income allocation — undo or re-run it from the Allocation screen so the day's record stays in step.`,
       );
     }
+    if (original.source === JournalEntrySource.LOANS && !opts.fromLoans) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} is a loan movement — undo it from the Loans screen so the loan's history stays in step.`,
+      );
+    }
+    if (original.source === JournalEntrySource.UTILITIES && !opts.fromUtilities) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} is part of a utility bill's allocation — unpost the bill from the Utilities screen instead.`,
+      );
+    }
     if (original.source === JournalEntrySource.PAYROLL && !opts.fromPayroll) {
       throw new BadRequestException(
         `${formatEntryNo(original.entryNo)} was posted by payroll — undo it from the Payroll screen (reopen the run or settlement, or cancel the advance) so its record stays in step.`,
@@ -454,6 +568,8 @@ export class JournalService {
             debit: l.debit,
             credit: l.credit,
             memo: l.memo,
+            costCentreId: l.costCentreId,
+            crossCharge: l.crossCharge,
           })),
         ),
       },
@@ -531,6 +647,12 @@ export class JournalService {
     if (query.from) qb.andWhere('e.entryDate >= :from', { from: query.from });
     if (query.to) qb.andWhere('e.entryDate <= :to', { to: query.to });
     if (query.kind) qb.andWhere('e.kind = :kind', { kind: query.kind });
+    if (query.costCentreId) {
+      qb.andWhere(
+        'e.id IN (SELECT jl."entryId" FROM journal_lines jl WHERE jl."costCentreId" = :costCentreId)',
+        { costCentreId: query.costCentreId },
+      );
+    }
     if (query.accountId) {
       qb.andWhere(
         'e.id IN (SELECT jl."entryId" FROM journal_lines jl WHERE jl."accountId" = :accountId)',
@@ -572,6 +694,16 @@ export class JournalService {
         })
       : [];
     const nameOf = new Map(authors.map((u) => [u.id, u.fullName]));
+    const centreIds = [
+      ...new Set(entries.flatMap((e) => (e.lines ?? []).map((l) => l.costCentreId)).filter(Boolean) as string[]),
+    ];
+    const centres = centreIds.length
+      ? await this.dataSource.manager.find(CostCentre, { where: { id: In(centreIds) }, withDeleted: true })
+      : [];
+    const centreOf = (id: string | null) => {
+      const c = id ? centres.find((x) => x.id === id) : null;
+      return c ? { id: c.id, code: c.code, name: c.name } : null;
+    };
 
     return entries.map((e) => {
       const lines = [...(e.lines ?? [])].sort((a, b) => a.lineNo - b.lineNo);
@@ -594,6 +726,7 @@ export class JournalService {
         amount: fromPaisa(lines.reduce((sum, l) => sum + toPaisa(l.debit), 0n)),
         reversalOfId: e.reversalOfId,
         reversedById: e.reversedById,
+        costCentre: centreOf(lines.find((l) => l.costCentreId)?.costCentreId ?? null),
         createdAt: e.createdAt,
         createdBy: e.createdBy,
         createdByName: e.createdBy ? (nameOf.get(e.createdBy) ?? null) : null,
@@ -609,6 +742,8 @@ export class JournalService {
           debit: l.debit,
           credit: l.credit,
           memo: l.memo,
+          costCentre: centreOf(l.costCentreId),
+          crossCharge: l.crossCharge,
         })),
       };
     });

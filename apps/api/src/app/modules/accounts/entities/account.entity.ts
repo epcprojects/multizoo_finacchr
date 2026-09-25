@@ -84,4 +84,13 @@ export class Account extends BaseEntity {
    */
   @Column({ default: false })
   isReserveOffset!: boolean;
+
+  /**
+   * Set on a loan's own account (Module 6): "Loan from MQK", "Due from Joy
+   * Land". Only the Loans screens post to it, so its history and the
+   * loan's movements always agree.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  loanId!: string | null;
 }

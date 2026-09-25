@@ -701,7 +701,7 @@ export async function refreshAdvanceStatuses(m: EntityManager, advanceIds: strin
   if (!ids.length) return;
   const advances = await m.find(SalaryAdvance, { where: { id: In(ids) }, relations: { recoveries: true } });
   for (const a of advances) {
-    if (a.status === SalaryAdvanceStatus.CANCELLED) continue;
+    if (a.status === SalaryAdvanceStatus.CANCELLED || a.status === SalaryAdvanceStatus.WRITTEN_OFF) continue;
     const recovered = a.recoveries.reduce((s, r) => s + toPaisa(r.amount), 0n);
     const status = recovered >= toPaisa(a.amount) ? SalaryAdvanceStatus.RECOVERED : SalaryAdvanceStatus.OUTSTANDING;
     if (status !== a.status) await m.update(SalaryAdvance, { id: a.id }, { status });

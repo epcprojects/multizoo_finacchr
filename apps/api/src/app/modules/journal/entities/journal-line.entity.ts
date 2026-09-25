@@ -56,7 +56,20 @@ export class JournalLine extends HasPrimaryKey {
   @Column({ type: 'varchar', length: 255, nullable: true })
   memo!: string | null;
 
-  /** Reserved for Module 6's cost-centre cross-charges (the "342" sheets). */
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  costCentre!: string | null;
+  /**
+   * The cost centre this spending belongs to (Module 6, the "342" sheets).
+   * Set on an entry's expense lines — and, when the centre is charged to a
+   * partner, on the lines that route it to their capital & current account.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  costCentreId!: string | null;
+
+  /**
+   * True on the lines the ledger adds to route a cost centre's spending to
+   * a partner (Dr their capital & current / Cr the expense). The cost-centre
+   * report counts spending from the other lines, and who bore it from these.
+   */
+  @Column({ default: false })
+  crossCharge!: boolean;
 }

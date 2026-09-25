@@ -11,8 +11,9 @@ import { Employee } from '../../hr/entities/employee.entity';
  * posts Dr Staff Salary Advances / Cr cash; each payroll recovers it
  * (in instalments, or all at once) until it's cleared.
  *
- * Module 6 brings every loan onto one counterparty ledger; this record is
- * what it will read for staff advances.
+ * Module 6 reads these for the counterparty ledger (an employee's loans
+ * beside their advances) and writes off what a leaver's settlement
+ * couldn't cover.
  */
 @Entity('salary_advances')
 @Index(['employeeId', 'issueDate'])
@@ -58,6 +59,16 @@ export class SalaryAdvance extends AuditableEntity {
 
   @Column({ type: 'text', nullable: true })
   cancelReason!: string | null;
+
+  /** WRITTEN_OFF: what was still outstanding, and the entry that wrote it off (Module 6). */
+  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  writtenOff!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  writeOffEntryId!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  writeOffReason!: string | null;
 
   @OneToMany(() => AdvanceRecovery, (r) => r.advance)
   recoveries!: Relation<AdvanceRecovery>[];

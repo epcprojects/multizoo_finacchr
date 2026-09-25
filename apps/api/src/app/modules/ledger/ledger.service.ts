@@ -451,6 +451,8 @@ export class LedgerService {
       partnerId: a.partnerId,
       /** BUCKET (Feed…), PARTNER (a partner's profit reserve), OFFSET (Earmarked Funds), or null. */
       reserveKind: reserveKind(a),
+      /** A loan's own account — posted to from the Loans screens only (Module 6). */
+      loanId: a.loanId,
     };
   }
 }

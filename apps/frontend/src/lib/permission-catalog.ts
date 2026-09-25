@@ -30,6 +30,7 @@ export const PERMISSION_CATALOG = [
   { label: 'Propose allocation rule changes (need approval)', value: 'rules.propose_allocation' },
   { label: 'Run the daily income allocation', value: 'allocation.run' },
   { label: 'View employee records & HR policy', value: 'employee.view' },
+  { label: 'Manage utility bills & allocation', value: 'utilities.manage' },
 ];
 
 const MODULE_LABELS: Record<string, string> = {
@@ -50,6 +51,7 @@ const MODULE_LABELS: Record<string, string> = {
   business_units: 'Business Units',
   accounts: 'Chart of Accounts',
   allocation: 'Income Allocation',
+  utilities: 'Utilities',
 };
 
 export type PermissionModule = {

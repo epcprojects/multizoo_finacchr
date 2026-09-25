@@ -36,6 +36,10 @@ import { PayrollAdjustment, PayrollPolicy, PayrollRun, Payslip } from '../../app
 import { AdvanceRecovery, SalaryAdvance } from '../../app/modules/payroll/entities/advance.entity';
 import { BonusPool, BonusPoolMember } from '../../app/modules/payroll/entities/bonus.entity';
 import { FinalSettlement } from '../../app/modules/payroll/entities/settlement.entity';
+import { Counterparty, Loan, LoanMovement } from '../../app/modules/loans/entities/loan.entity';
+import { SubMeter, UtilityBill, UtilityConnection } from '../../app/modules/utilities/entities/utility.entity';
+import { CostCentre } from '../../app/modules/cost-centres/entities/cost-centre.entity';
+import { seedLoansUtilities } from './loans-utilities.seed';
 
 async function main() {
   const dataSource = new DataSource({
@@ -85,6 +89,13 @@ async function main() {
       BonusPool,
       BonusPoolMember,
       FinalSettlement,
+      Counterparty,
+      Loan,
+      LoanMovement,
+      UtilityConnection,
+      SubMeter,
+      UtilityBill,
+      CostCentre,
     ],
     synchronize: false,
   });
@@ -98,6 +109,7 @@ async function main() {
   await seedAllocation(dataSource);
   await seedHr(dataSource);
   await seedPayroll(dataSource);
+  await seedLoansUtilities(dataSource);
 
   await dataSource.destroy();
   console.log('Done.');

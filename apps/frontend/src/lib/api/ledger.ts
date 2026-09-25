@@ -12,7 +12,8 @@ export type EntryKind =
   | 'ALLOCATION'
   | 'RESERVE_TRANSFER'
   | 'PARTNER_DRAWING'
-  | 'PAYROLL';
+  | 'PAYROLL'
+  | 'LOAN';
 
 /** BUCKET (Feed…), PARTNER (a partner's profit reserve), OFFSET (Earmarked Funds). */
 export type ReserveKind = 'BUCKET' | 'PARTNER' | 'OFFSET';
@@ -118,6 +119,7 @@ export const KIND_LABELS: Record<EntryKind, string> = {
   RESERVE_TRANSFER: 'Reserve transfer',
   PARTNER_DRAWING: 'Partner drawing',
   PAYROLL: 'Payroll',
+  LOAN: 'Loan',
 };
 
 export interface BusinessUnitRecord {
@@ -151,7 +153,15 @@ export interface AccountRecord {
   isDebitNormal: boolean;
   partnerId: string | null;
   reserveKind: ReserveKind | null;
+  /** A loan's own account — posted from the Loans screens only. */
+  loanId: string | null;
   balance: string;
+}
+
+export interface CostCentreRef {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export interface EntryLine {
@@ -166,6 +176,9 @@ export interface EntryLine {
   debit: string;
   credit: string;
   memo: string | null;
+  costCentre: CostCentreRef | null;
+  /** Added by the ledger to route a cost centre's spending to a partner. */
+  crossCharge: boolean;
 }
 
 export interface JournalEntryRecord {
@@ -183,6 +196,7 @@ export interface JournalEntryRecord {
   reversedById: string | null;
   reversalOfNo?: string | null;
   reversedByNo?: string | null;
+  costCentre: CostCentreRef | null;
   createdAt: string;
   createdByName: string | null;
   lines: EntryLine[];
@@ -265,10 +279,12 @@ export interface NewEntryPayload {
   businessUnitId: string;
   description: string;
   reference?: string;
-  kind: Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION' | 'PAYROLL'>;
+  kind: Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION' | 'PAYROLL' | 'LOAN'>;
   lines: { accountId: string; debit?: string; credit?: string; memo?: string }[];
   /** Money out only: the reserve this payment is paid out of. */
   reserveAccountId?: string;
+  /** Spending only: the cost centre it's for. */
+  costCentreId?: string;
 }
 
 // --- Business units ---------------------------------------------------------
@@ -448,6 +464,7 @@ export async function createReconciliation(
 export async function listJournalEntries(params: {
   businessUnitId?: string;
   accountId?: string;
+  costCentreId?: string;
   from?: string;
   to?: string;
   kind?: EntryKind;

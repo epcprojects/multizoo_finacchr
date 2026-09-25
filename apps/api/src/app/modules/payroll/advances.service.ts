@@ -66,7 +66,12 @@ export class AdvancesService {
         reason: a.reason,
         status: a.status,
         recovered: fromPaisa(recovered),
-        outstanding: a.status === SalaryAdvanceStatus.CANCELLED ? '0.00' : fromPaisa(toPaisa(a.amount) - recovered),
+        outstanding:
+          a.status === SalaryAdvanceStatus.CANCELLED || a.status === SalaryAdvanceStatus.WRITTEN_OFF
+            ? '0.00'
+            : fromPaisa(toPaisa(a.amount) - recovered),
+        writtenOff: a.writtenOff,
+        writeOffReason: a.writeOffReason,
         recoveries: [...a.recoveries]
           .sort((x, y) => x.month.localeCompare(y.month))
           .map((r) => ({ month: r.month, amount: r.amount, source: r.payslipId ? 'PAYROLL' : 'SETTLEMENT' })),

@@ -79,6 +79,11 @@ export class CreateJournalEntryDto {
   @IsOptional()
   @IsUUID()
   reserveAccountId?: string;
+
+  /** Spending only: the cost centre it's for (Module 6). */
+  @IsOptional()
+  @IsUUID()
+  costCentreId?: string;
 }
 
 export class ReverseJournalEntryDto {
@@ -100,6 +105,10 @@ export class ListJournalEntriesQueryDto {
   @IsOptional()
   @IsUUID()
   accountId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  costCentreId?: string;
 
   @IsOptional()
   @Matches(DATE_REGEX)

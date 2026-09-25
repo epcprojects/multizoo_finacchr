@@ -242,6 +242,7 @@ export default function PayrollPage() {
                     { label: 'Outstanding', value: 'OUTSTANDING' },
                     { label: 'Recovered', value: 'RECOVERED' },
                     { label: 'Cancelled', value: 'CANCELLED' },
+                    { label: 'Written off', value: 'WRITTEN_OFF' },
                     { label: 'Every advance', value: '' },
                   ]}
                 />
@@ -286,7 +287,17 @@ export default function PayrollPage() {
                             {a.recoveries.length > 0 && <p className="text-xs text-gray-500">{a.recoveries.length} {a.recoveries.length === 1 ? 'recovery' : 'recoveries'}</p>}
                           </td>
                           <td className={`${td} text-right font-semibold tabular-nums`}>
-                            {a.status === 'CANCELLED' ? <Pill>Cancelled</Pill> : a.status === 'RECOVERED' ? <Pill tone="green">Recovered</Pill> : formatMoney(a.outstanding)}
+                            {a.status === 'CANCELLED' ? (
+                              <Pill>Cancelled</Pill>
+                            ) : a.status === 'RECOVERED' ? (
+                              <Pill tone="green">Recovered</Pill>
+                            ) : a.status === 'WRITTEN_OFF' ? (
+                              <Pill tone="red" title={a.writeOffReason ?? undefined}>
+                                {formatMoney(a.writtenOff)} written off
+                              </Pill>
+                            ) : (
+                              formatMoney(a.outstanding)
+                            )}
                           </td>
                           <td className={`${td} text-right`}>
                             {canRun && a.status === 'OUTSTANDING' && a.recoveries.length === 0 && (

@@ -32,6 +32,7 @@ const KIND_TONES: Record<EntryKind, string> = {
   RESERVE_TRANSFER: 'bg-teal-50 text-teal-700 border-teal-200',
   PARTNER_DRAWING: 'bg-orange-50 text-orange-700 border-orange-200',
   PAYROLL: 'bg-violet-50 text-violet-700 border-violet-200',
+  LOAN: 'bg-amber-50 text-amber-800 border-amber-200',
 };
 
 export default function TransactionsPage() {
@@ -229,8 +230,16 @@ export default function TransactionsPage() {
                         <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-800">{e.businessUnit?.code}</td>
                         <td className="px-4 py-3 text-sm text-gray-800">
                           <span className={clsx(e.reversedById && 'text-gray-400 line-through')}>{e.description}</span>
+                          {e.costCentre && (
+                            <span
+                              title={e.costCentre.name}
+                              className="ml-1.5 rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700"
+                            >
+                              {e.costCentre.code}
+                            </span>
+                          )}
                           <span className="block text-xs text-gray-500">
-                            {e.lines.map((l) => l.accountName).join(' → ')}
+                            {[...new Set(e.lines.filter((l) => !l.crossCharge).map((l) => l.accountName))].join(' → ')}
                           </span>
                         </td>
                         <td className="px-4 py-3">

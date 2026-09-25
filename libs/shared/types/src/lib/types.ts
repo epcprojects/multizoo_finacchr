@@ -57,6 +57,9 @@ export enum Permission {
   // Module 4 — Employees, attendance & leave
   /** See the employee master, HR policy and registers without changing them (Partner: "view only"). */
   EMPLOYEE_VIEW = 'employee.view',
+  // Module 6 — Loans, utilities & cost centres
+  /** Set up utility connections, enter bills and post their allocation. */
+  UTILITIES_MANAGE = 'utilities.manage',
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +139,8 @@ export enum JournalEntryKind {
   PARTNER_DRAWING = 'PARTNER_DRAWING',
   /** A month's salaries owed (payroll run or settlement) — posted only by payroll. */
   PAYROLL = 'PAYROLL',
+  /** A loan movement that isn't a plain cash in / out (paid on our behalf, set off, charged). */
+  LOAN = 'LOAN',
 }
 
 /** Where an entry came from. */
@@ -146,6 +151,10 @@ export enum JournalEntrySource {
   ALLOCATION = 'ALLOCATION',
   /** Payroll runs, salary advances and settlements — undone from the Payroll screens only. */
   PAYROLL = 'PAYROLL',
+  /** Loan and inter-unit movements — undone from the Loans screens only. */
+  LOANS = 'LOANS',
+  /** A utility bill's allocation — undone by unposting the bill. */
+  UTILITIES = 'UTILITIES',
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +308,8 @@ export enum SalaryAdvanceStatus {
   OUTSTANDING = 'OUTSTANDING',
   RECOVERED = 'RECOVERED',
   CANCELLED = 'CANCELLED',
+  /** What a leaver's settlement couldn't cover, written off by a Partner (Module 6). */
+  WRITTEN_OFF = 'WRITTEN_OFF',
 }
 
 /** How a bonus tier's share of the pool divides between the people in it. */
@@ -325,4 +336,82 @@ export enum SettlementStatus {
 export enum PayrollPolicyStatus {
   ACTIVE = 'ACTIVE',
   SUPERSEDED = 'SUPERSEDED',
+}
+
+// ---------------------------------------------------------------------------
+// Loans, utilities & cost centres (Module 6)
+// ---------------------------------------------------------------------------
+
+/** Who is on the other side of a loan account. */
+export enum CounterpartyKind {
+  PARTNER = 'PARTNER',
+  EMPLOYEE = 'EMPLOYEE',
+  /** Another business unit — inter-unit loans and recharges. */
+  BUSINESS_UNIT = 'BUSINESS_UNIT',
+  PERSON = 'PERSON',
+  ORGANISATION = 'ORGANISATION',
+}
+
+/** Which way the money first went: we lent it (they owe us) or we borrowed it (we owe them). */
+export enum LoanDirection {
+  RECEIVABLE = 'RECEIVABLE',
+  PAYABLE = 'PAYABLE',
+}
+
+/**
+ * A loan account's life. A Partner approves a loan before anything posts
+ * to it (roles table: "Approve loans & inter-unit transfers").
+ */
+export enum LoanStatus {
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  ACTIVE = 'ACTIVE',
+  REJECTED = 'REJECTED',
+  /** Settled to zero and closed; can be reopened. */
+  CLOSED = 'CLOSED',
+}
+
+/** Whether a movement adds to what's owed, or pays some of it back. */
+export enum LoanMovementEffect {
+  INCREASE = 'INCREASE',
+  DECREASE = 'DECREASE',
+}
+
+/** What the other side of a loan movement is. */
+export enum LoanMovementMethod {
+  /** Cash, bank or wallet of the unit. */
+  CASH = 'CASH',
+  /** No cash moves here: a bill they paid for us, or a charge to them (expense, asset or income account). */
+  ON_ACCOUNT = 'ON_ACCOUNT',
+  /** Set off against a partner's profit — debits their capital & current account. */
+  PROFIT_SETOFF = 'PROFIT_SETOFF',
+  /** A balance brought in from the workbooks at cutover. */
+  OPENING = 'OPENING',
+}
+
+export enum LoanMovementStatus {
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  POSTED = 'POSTED',
+  REJECTED = 'REJECTED',
+  REVERSED = 'REVERSED',
+}
+
+/** How a utility bill is shared out. */
+export enum UtilityAllocationMethod {
+  /** The Zoo Green Meter: sub-meters charged by reading, the rest split by %. */
+  SUB_METERED = 'SUB_METERED',
+  /** The Admin Block bill: split by fixed weights (offices owned). */
+  SHARED = 'SHARED',
+}
+
+export enum UtilityBillStatus {
+  DRAFT = 'DRAFT',
+  POSTED = 'POSTED',
+}
+
+/** Where spending tagged with a cost centre ends up. */
+export enum CostCentreCharge {
+  /** The paying unit's own P&L — the tag is for reporting. */
+  UNIT = 'UNIT',
+  /** A partner's capital & current account, out of their profit (the "342" media office). */
+  PARTNER = 'PARTNER',
 }

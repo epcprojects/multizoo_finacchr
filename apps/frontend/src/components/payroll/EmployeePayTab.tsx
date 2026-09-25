@@ -112,7 +112,9 @@ export default function EmployeePayTab({ employee: e, canRun }: { employee: Empl
                   {a.status === 'OUTSTANDING' ? (
                     <Pill tone="amber">{formatMoney(a.outstanding)} to recover</Pill>
                   ) : (
-                    <Pill tone={a.status === 'RECOVERED' ? 'green' : 'gray'}>{a.status === 'RECOVERED' ? 'Recovered' : 'Cancelled'}</Pill>
+                    <Pill tone={a.status === 'RECOVERED' ? 'green' : a.status === 'WRITTEN_OFF' ? 'red' : 'gray'}>
+                      {a.status === 'RECOVERED' ? 'Recovered' : a.status === 'WRITTEN_OFF' ? `${formatMoney(a.writtenOff)} written off` : 'Cancelled'}
+                    </Pill>
                   )}
                 </span>
               </div>

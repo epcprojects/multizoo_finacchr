@@ -16,6 +16,7 @@ import {
   type JournalEntryRecord,
   type NewEntryPayload,
 } from '../../lib/api/ledger';
+import { listCostCentres, type CostCentreRecord } from '../../lib/api/cost-centres';
 import {
   errorMessage,
   formatMoney,
@@ -25,7 +26,10 @@ import {
   toPaisa,
 } from '../../lib/money';
 
-type PostableKind = Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION' | 'PAYROLL'>;
+type PostableKind = Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION' | 'PAYROLL' | 'LOAN'>;
+
+/** Spending can carry a cost centre (Module 6). */
+const SPENDING_KINDS: PostableKind[] = ['MONEY_OUT', 'GENERAL'];
 
 const KIND_TABS: { kind: PostableKind; label: string; hint: string; accountantOnly?: boolean }[] = [
   { kind: 'MONEY_IN', label: 'Money in', hint: 'Sales or any money received into cash, bank or wallet.' },
@@ -111,6 +115,8 @@ export default function NewEntryPanel({
   const [lines, setLines] = useState<JournalLineDraft[]>([]);
   const [accounts, setAccounts] = useState<AccountRecord[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [centres, setCentres] = useState<CostCentreRecord[]>([]);
+  const [costCentreId, setCostCentreId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -128,7 +134,11 @@ export default function NewEntryPanel({
       { key: 1, accountId: '', debit: '', credit: '', memo: '' },
       { key: 2, accountId: '', debit: '', credit: '', memo: '' },
     ]);
+    setCostCentreId('');
     setError(null);
+    void listCostCentres()
+      .then((list) => setCentres(list.filter((c) => c.isActive)))
+      .catch(() => setCentres([]));
   }, [isOpen, defaultUnitId, activeUnits, initialKind]);
 
   useEffect(() => {
@@ -140,7 +150,8 @@ export default function NewEntryPanel({
     setLoadingAccounts(true);
     listAccounts({ businessUnitId: unitId })
       .then((list) => {
-        const usable = list.filter((a) => a.isPostable && a.isActive);
+        // Loan accounts are posted from the Loans screens only.
+        const usable = list.filter((a) => a.isPostable && a.isActive && !a.loanId);
         setAccounts(usable.filter((a) => !a.accountClass?.isReserve));
         // Buckets and partners' profit reserves (the offset never shows — the ledger handles it).
         setReserves(usable.filter((a) => a.reserveKind === 'BUCKET' || a.reserveKind === 'PARTNER'));
@@ -153,13 +164,19 @@ export default function NewEntryPanel({
     setLiquidId('');
     setOtherId('');
     setReserveId('');
+    setCostCentreId('');
   }, [isOpen, unitId]);
 
   useEffect(() => {
     setOtherId('');
     setReserveId('');
+    setCostCentreId('');
     setError(null);
   }, [kind]);
+
+  const unitCentres = centres.filter((c) => !c.businessUnit || c.businessUnit.id === unitId);
+  const centre = centres.find((c) => c.id === costCentreId) ?? null;
+  const routedToPartner = centre?.chargeTo === 'PARTNER' ? centre.partner : null;
 
   const byId = useMemo(() => new Map([...accounts, ...reserves].map((a) => [a.id, a])), [accounts, reserves]);
   const liquid = accounts.filter((a) => a.accountClass?.isLiquid);
@@ -279,12 +296,27 @@ export default function NewEntryPanel({
       deltas.set(l.accountId, (deltas.get(l.accountId) ?? 0n) + normalDelta(account, l.debit, l.credit));
     }
     if (released) deltas.set(released.id, (deltas.get(released.id) ?? 0n) - amountPaisa);
+    // A cost centre charged to a partner: the ledger nets the expense and debits their capital.
+    if (routedToPartner && SPENDING_KINDS.includes(kind)) {
+      let charged = 0n;
+      for (const l of builtLines) {
+        const account = byId.get(l.accountId);
+        if (account?.type === 'EXPENSE' && l.debit > 0n) {
+          charged += l.debit;
+          deltas.set(l.accountId, (deltas.get(l.accountId) ?? 0n) - l.debit);
+        }
+      }
+      const equity = accounts.find((a) => a.partnerId === routedToPartner.id && a.type === 'EQUITY');
+      if (equity && charged > 0n) deltas.set(equity.id, (deltas.get(equity.id) ?? 0n) + normalDelta(equity, charged, 0n));
+      const reserve = reserves.find((r) => r.reserveKind === 'PARTNER' && r.partnerId === routedToPartner.id);
+      if (reserve && kind === 'MONEY_OUT' && charged > 0n) deltas.set(reserve.id, (deltas.get(reserve.id) ?? 0n) - charged);
+    }
     return [...deltas.entries()].map(([id, delta]) => {
       const account = byId.get(id) as AccountRecord;
       const before = toPaisa(account.balance);
       return { account, before, delta, after: before + delta };
     });
-  }, [builtLines, byId, released, amountPaisa]);
+  }, [builtLines, byId, released, amountPaisa, routedToPartner, kind, accounts, reserves]);
 
   async function submit() {
     setError(null);
@@ -318,6 +350,7 @@ export default function NewEntryPanel({
         ...(l.memo ? { memo: l.memo } : {}),
       })),
       ...(kind === 'MONEY_OUT' && reserveId ? { reserveAccountId: reserveId } : {}),
+      ...(SPENDING_KINDS.includes(kind) && costCentreId ? { costCentreId } : {}),
     };
 
     setSubmitting(true);
@@ -473,7 +506,7 @@ export default function NewEntryPanel({
                 onChange={(e) => setReference(e.target.value)}
               />
             </div>
-            {kind === 'MONEY_OUT' && bucketReserves.length > 0 && (
+            {kind === 'MONEY_OUT' && bucketReserves.length > 0 && !routedToPartner && (
               <Select
                 label="Paid out of reserve"
                 placeholder="Not from a reserve"
@@ -491,6 +524,34 @@ export default function NewEntryPanel({
           </>
         ) : (
           <JournalGrid lines={lines} setLines={setLines} options={opts(accounts)} disabled={!unitId} />
+        )}
+
+        {SPENDING_KINDS.includes(kind) && unitCentres.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Select
+              label="Cost centre"
+              placeholder="None — the unit's own spending"
+              value={costCentreId}
+              onChange={(v) => {
+                setCostCentreId(v);
+                if (centres.find((c) => c.id === v)?.chargeTo === 'PARTNER') setReserveId('');
+              }}
+              options={[
+                { label: 'None — the unit’s own spending', value: '' },
+                ...unitCentres.map((c) => ({
+                  label: `${c.code} · ${c.name}${c.partner ? ` — charged to ${c.partner.shortName}` : ''}`,
+                  value: c.id,
+                })),
+              ]}
+            />
+            {routedToPartner && (
+              <p className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800">
+                Paid from {routedToPartner.shortName}&apos;s profit: the expense is recorded under {centre?.code}, then charged to{' '}
+                {routedToPartner.shortName} — Capital &amp; Current instead of this unit&apos;s P&amp;L
+                {kind === 'MONEY_OUT' ? `, and ${routedToPartner.shortName}’s profit reserve here is released by the amount paid` : ''}.
+              </p>
+            )}
+          </div>
         )}
 
         {kind === 'GENERAL' && (

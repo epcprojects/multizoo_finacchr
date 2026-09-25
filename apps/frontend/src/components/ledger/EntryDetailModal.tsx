@@ -64,9 +64,10 @@ export default function EntryDetailModal({
     }
   }
 
-  // A day's waterfall is undone from the Allocation screen, and payroll postings from the Payroll
-  // screens — each keeps its own record in step.
-  const fromEngine = entry?.source === 'ALLOCATION' || entry?.source === 'PAYROLL';
+  // A day's waterfall is undone from the Allocation screen, payroll postings from the Payroll
+  // screens, loan movements from Loans and utility recharges from Utilities — each keeps its
+  // own record in step.
+  const fromEngine = ['ALLOCATION', 'PAYROLL', 'LOANS', 'UTILITIES'].includes(entry?.source ?? '');
   const reversible = entry && !entry.reversedById && entry.kind !== 'REVERSAL' && !fromEngine;
 
   return (
@@ -103,6 +104,14 @@ export default function EntryDetailModal({
                 Reverses {entry.reversalOfNo}
               </button>
             )}
+            {entry.costCentre && (
+              <Link
+                href={`/cost-centres/${entry.costCentre.id}`}
+                className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 hover:underline"
+              >
+                Cost centre {entry.costCentre.code} · {entry.costCentre.name}
+              </Link>
+            )}
           </div>
 
           <div>
@@ -131,6 +140,7 @@ export default function EntryDetailModal({
                       </Link>
                       <span className="ml-2 text-xs text-gray-500">{l.accountCode}</span>
                       {l.memo && <p className="text-xs text-gray-500">{l.memo}</p>}
+                      {l.crossCharge && <p className="text-xs text-violet-700">Routed by the cost centre</p>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
                       {toPaisa(l.debit) > 0n ? formatMoney(l.debit, { prefix: false }) : ''}
@@ -158,6 +168,26 @@ export default function EntryDetailModal({
               This was posted by payroll. To undo it, reopen the run or settlement (or cancel the advance) on the{' '}
               <Link href="/payroll" className="font-medium underline">
                 Payroll screen
+              </Link>
+              .
+            </p>
+          )}
+
+          {entry.source === 'LOANS' && !entry.reversedById && (
+            <p className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+              This is a loan movement ({entry.reference}). To undo it, reverse the movement on the{' '}
+              <Link href="/loans" className="font-medium underline">
+                Loans screen
+              </Link>{' '}
+              so the loan&apos;s history stays complete.
+            </p>
+          )}
+
+          {entry.source === 'UTILITIES' && !entry.reversedById && (
+            <p className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+              This is part of a utility bill&apos;s allocation. To change it, unpost the bill on the{' '}
+              <Link href="/utilities" className="font-medium underline">
+                Utilities screen
               </Link>
               .
             </p>

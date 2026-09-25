@@ -54,6 +54,8 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       // Allocation rules: "approval only" — drafts and submits; a Partner approves.
       P.RULES_PROPOSE_ALLOCATION,
       P.ALLOCATION_RUN,
+      // Utility bill allocation sheet — "Accountant" (Part 08 report table).
+      P.UTILITIES_MANAGE,
     ],
   },
   [SeedRoleName.BRANCH_MANAGER]: {

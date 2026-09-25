@@ -3,7 +3,7 @@ import type { BonusTier, EmploymentType, PayBasis, UnitRef } from './hr';
 
 export type PayrollRunStatus = 'DRAFT' | 'FINALIZED' | 'PAID';
 export type AdjustmentKind = 'ALLOWANCE' | 'FOOD' | 'DEDUCTION' | 'ADVANCE_RECOVERY';
-export type AdvanceStatus = 'OUTSTANDING' | 'RECOVERED' | 'CANCELLED';
+export type AdvanceStatus = 'OUTSTANDING' | 'RECOVERED' | 'CANCELLED' | 'WRITTEN_OFF';
 export type BonusSplit = 'EQUAL' | 'BY_UNITS';
 export type BonusPoolStatus = 'DRAFT' | 'APPROVED';
 export type SettlementStatus = 'DRAFT' | 'FINALIZED' | 'PAID';
@@ -232,6 +232,9 @@ export interface AdvanceRecord {
   recoveries: { month: string; amount: string; source: 'PAYROLL' | 'SETTLEMENT' }[];
   entry: EntryRef | null;
   cancelReason: string | null;
+  /** What a leaver's settlement couldn't recover, written off (Loans → Staff advances). */
+  writtenOff: string | null;
+  writeOffReason: string | null;
   createdAt: string;
   createdByName: string | null;
 }
