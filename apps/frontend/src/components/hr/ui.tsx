@@ -19,7 +19,8 @@ export function Section({ title, subtitle, actions, children, className }: {
       {(title || actions) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            {title && <p className="text-lg font-bold text-black">{title}</p>}
+            {/* A div, not a p: pages pass block content (e.g. <Tabs>) as the title. */}
+            {title && <div className="text-lg font-bold text-black">{title}</div>}
             {subtitle && <p className="text-sm text-gray-600">{subtitle}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
