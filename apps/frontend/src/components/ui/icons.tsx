@@ -282,3 +282,53 @@ export function LeaveIcon({ fill = 'currentColor' }: { fill?: string }) {
     </svg>
   );
 }
+
+/** Stacked coins — the Finance group. */
+export function FinanceIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <ellipse cx="10.5" cy="7" rx="6.5" ry="2.8" stroke={fill} strokeWidth="1.8" />
+      <path d="M4 7v4.5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8V7" stroke={fill} strokeWidth="1.8" />
+      <path d="M4 11.5V16c0 1.5 2.9 2.8 6.5 2.8 1 0 2-.1 2.8-.3" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="17.5" cy="17.5" r="4.8" stroke={fill} strokeWidth="1.8" />
+      <path d="M17.5 15.3v4.4" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** An ID badge — the HR group. */
+export function HrIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <rect x="4" y="5" width="18" height="17" rx="2.5" stroke={fill} strokeWidth="1.8" />
+      <path d="M10.5 3v4h5V3" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="13" cy="12.2" r="2.4" stroke={fill} strokeWidth="1.8" />
+      <path d="M8.8 18.5c.6-2 2.2-3.1 4.2-3.1s3.6 1.1 4.2 3.1" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** A gear — the Settings group. */
+export function SettingsIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <circle cx="13" cy="13" r="3.2" stroke={fill} strokeWidth="1.8" />
+      <path
+        d="M13 3.5v2.6M13 19.9v2.6M22.5 13h-2.6M6.1 13H3.5M19.7 6.3l-1.8 1.8M8.1 17.9l-1.8 1.8M19.7 19.7l-1.8-1.8M8.1 8.1 6.3 6.3"
+        stroke={fill}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx="13" cy="13" r="6.8" stroke={fill} strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+/** A small chevron for expandable nav groups. */
+export function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
+      <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

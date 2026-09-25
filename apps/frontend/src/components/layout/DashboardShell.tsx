@@ -2,7 +2,7 @@
 
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useUser } from './UserProvider';
 import Logo from '../ui/Logo';
 import {
@@ -18,6 +18,10 @@ import {
   EmployeesIcon,
   AttendanceIcon,
   LeaveIcon,
+  FinanceIcon,
+  HrIcon,
+  SettingsIcon,
+  ChevronIcon,
 } from '../ui/icons';
 
 type NavItem = {
@@ -26,6 +30,17 @@ type NavItem = {
   icon: ReactNode;
   anyPermissions?: string[];
 };
+
+type NavGroup = {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  items: NavItem[];
+};
+
+type NavEntry = NavItem | NavGroup;
+
+const isGroup = (e: NavEntry): e is NavGroup => 'items' in e;
 
 /** Anyone with an HR duty sees the HR screens (their own units only). */
 const HR_VIEWERS = [
@@ -39,63 +54,58 @@ const HR_VIEWERS = [
   'payroll.run',
 ];
 
-const navigationItems: NavItem[] = [
+const navigation: NavEntry[] = [
   { href: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   {
-    href: '/transactions',
-    label: 'Entries',
-    icon: <TransactionsIcon />,
-    anyPermissions: ['ledger.view', 'transactions.create_own_unit'],
+    key: 'finance',
+    label: 'Finance',
+    icon: <FinanceIcon />,
+    items: [
+      { href: '/transactions', label: 'Entries', icon: <TransactionsIcon />, anyPermissions: ['ledger.view', 'transactions.create_own_unit'] },
+      { href: '/accounts', label: 'Accounts', icon: <AccountsIcon />, anyPermissions: ['ledger.view'] },
+      { href: '/allocation', label: 'Allocation', icon: <AllocationIcon />, anyPermissions: ['ledger.view'] },
+    ],
   },
   {
-    href: '/accounts',
-    label: 'Accounts',
-    icon: <AccountsIcon />,
-    anyPermissions: ['ledger.view'],
+    key: 'hr',
+    label: 'HR',
+    icon: <HrIcon />,
+    items: [
+      { href: '/employees', label: 'Employees', icon: <EmployeesIcon />, anyPermissions: HR_VIEWERS },
+      { href: '/attendance', label: 'Attendance', icon: <AttendanceIcon />, anyPermissions: HR_VIEWERS },
+      { href: '/leave', label: 'Leave', icon: <LeaveIcon />, anyPermissions: HR_VIEWERS },
+    ],
   },
   {
-    href: '/allocation',
-    label: 'Allocation',
-    icon: <AllocationIcon />,
-    anyPermissions: ['ledger.view'],
-  },
-  {
-    href: '/employees',
-    label: 'Employees',
-    icon: <EmployeesIcon />,
-    anyPermissions: HR_VIEWERS,
-  },
-  {
-    href: '/attendance',
-    label: 'Attendance',
-    icon: <AttendanceIcon />,
-    anyPermissions: HR_VIEWERS,
-  },
-  {
-    href: '/leave',
-    label: 'Leave',
-    icon: <LeaveIcon />,
-    anyPermissions: HR_VIEWERS,
-  },
-  {
-    href: '/business-units',
-    label: 'Units',
-    icon: <UnitsIcon />,
-    anyPermissions: ['ledger.view', 'business_units.manage'],
-  },
-  {
-    href: '/users',
-    label: 'Users',
-    icon: <UsersIcon />,
-    anyPermissions: ['users.invite'],
-  },
-  {
-    href: '/roles',
-    label: 'Roles',
-    icon: <RolesIcon />,
-    anyPermissions: ['roles.manage', 'users.invite'],
+    key: 'settings',
+    label: 'Settings',
+    icon: <SettingsIcon />,
+    items: [
+      { href: '/business-units', label: 'Units', icon: <UnitsIcon />, anyPermissions: ['ledger.view', 'business_units.manage'] },
+      { href: '/accounts/settings', label: 'Chart', icon: <AccountsIcon />, anyPermissions: ['accounts.manage'] },
+      {
+        href: '/employees/settings',
+        label: 'HR policy',
+        icon: <HrIcon />,
+        anyPermissions: ['employee.manage', 'employee.view', 'rules.edit_hr_policy'],
+      },
+      { href: '/users', label: 'Users', icon: <UsersIcon />, anyPermissions: ['users.invite'] },
+      { href: '/roles', label: 'Roles', icon: <RolesIcon />, anyPermissions: ['roles.manage', 'users.invite'] },
+    ],
   },
 ];
+
+/**
+ * The nav item for a path: the longest matching href wins, so
+ * /accounts/settings lights up "Chart", not "Accounts".
+ */
+function activeHref(pathname: string, items: NavItem[]): string | null {
+  let best: string | null = null;
+  for (const { href } of items) {
+    if ((pathname === href || pathname.startsWith(`${href}/`)) && (!best || href.length > best.length)) best = href;
+  }
+  return best;
+}
 
 function getInitials(name: string) {
   return (
@@ -121,13 +131,34 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const { user, loading, hasAnyPermission, logout } = useUser();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleNavItems = useMemo(
-    () =>
-      navigationItems.filter(
-        (item) => !item.anyPermissions || hasAnyPermission(item.anyPermissions),
-      ),
-    [hasAnyPermission],
+  // A group with only one item the user can see collapses to that item — no one-item folders.
+  const entries = useMemo<NavEntry[]>(() => {
+    const allowed = (item: NavItem) => !item.anyPermissions || hasAnyPermission(item.anyPermissions);
+    return navigation.flatMap((e): NavEntry[] => {
+      if (!isGroup(e)) return allowed(e) ? [e] : [];
+      const items = e.items.filter(allowed);
+      if (!items.length) return [];
+      return items.length === 1 ? [items[0]] : [{ ...e, items }];
+    });
+  }, [hasAnyPermission]);
+
+  const current = useMemo(
+    () => activeHref(pathname, entries.flatMap((e) => (isGroup(e) ? e.items : [e]))),
+    [pathname, entries],
   );
+  const currentGroupKey =
+    entries.find((e): e is NavGroup => isGroup(e) && e.items.some((i) => i.href === current))?.key ?? null;
+
+  // One group open at a time; navigating opens the group that holds the page.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  useEffect(() => {
+    if (currentGroupKey) setOpenGroup(currentGroupKey);
+  }, [currentGroupKey]);
+
+  function go(href: string) {
+    setMobileOpen(false);
+    router.push(href);
+  }
 
   if (loading || !user) {
     return (
@@ -160,30 +191,45 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           <Logo size={44} />
         </button>
 
-        <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto">
-          {visibleNavItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+        <nav className="flex w-full flex-1 flex-col items-center gap-2 overflow-y-auto scrollbar-hide">
+          {entries.map((entry) => {
+            if (!isGroup(entry)) {
+              return <RailButton key={entry.href} item={entry} active={current === entry.href} onClick={() => go(entry.href)} />;
+            }
+            const open = openGroup === entry.key;
+            const holdsActive = currentGroupKey === entry.key;
             return (
-              <button
-                key={item.href}
-                onClick={() => {
-                  setMobileOpen(false);
-                  router.push(item.href);
-                }}
-                className="flex flex-col items-center gap-1"
-              >
-                <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-full transition [&>svg]:h-5 [&>svg]:w-5 ${
-                    isActive
-                      ? 'bg-accent text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 hover:text-accent'
-                  }`}
+              <div key={entry.key} className="flex w-full flex-col items-center gap-1">
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => setOpenGroup(open ? null : entry.key)}
+                  className="flex flex-col items-center gap-1"
                 >
-                  {item.icon}
-                </span>
-                <span className="text-[11px] text-gray-900">{item.label}</span>
-              </button>
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-full transition [&>svg]:h-5 [&>svg]:w-5 ${
+                      holdsActive && !open
+                        ? 'bg-accent text-white'
+                        : holdsActive
+                          ? 'bg-white text-accent ring-2 ring-accent/40'
+                          : 'bg-white text-gray-700 hover:bg-gray-100 hover:text-accent'
+                    }`}
+                  >
+                    {entry.icon}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-[11px] text-gray-900">
+                    {entry.label}
+                    <ChevronIcon open={open} />
+                  </span>
+                </button>
+                {open && (
+                  <div className="flex w-full flex-col items-center gap-1.5 rounded-2xl bg-white/70 py-2 ring-1 ring-gray-200/70">
+                    {entry.items.map((item) => (
+                      <RailButton key={item.href} item={item} active={current === item.href} small onClick={() => go(item.href)} />
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -231,5 +277,22 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
+  );
+}
+
+function RailButton({ item, active, small, onClick }: { item: NavItem; active: boolean; small?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className="flex flex-col items-center gap-1">
+      <span
+        className={`flex items-center justify-center rounded-full transition ${
+          small ? 'h-8 w-8 [&>svg]:h-4 [&>svg]:w-4' : 'h-10 w-10 [&>svg]:h-5 [&>svg]:w-5'
+        } ${active ? 'bg-accent text-white' : 'bg-white text-gray-700 hover:bg-gray-100 hover:text-accent'}`}
+      >
+        {item.icon}
+      </span>
+      <span className={`${small ? 'text-[10px]' : 'text-[11px]'} ${active ? 'font-semibold text-accent' : 'text-gray-900'}`}>
+        {item.label}
+      </span>
+    </button>
   );
 }
