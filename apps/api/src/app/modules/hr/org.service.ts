@@ -6,15 +6,15 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
-import { EmployeeStatus, EmploymentType, HrPolicyStatus } from '@multizoo/types';
+import { EmployeeStatus, EmploymentType, HrPolicyStatus, LeaveRequestStatus } from '@multizoo/types';
 import { businessDate } from '@multizoo/utils';
 import type { AuthenticatedUser } from '../users/users.service';
 import { BusinessUnit } from '../business-units/entities/business-unit.entity';
 import { visibleUnitIds } from '../../../common/scope/unit-scope';
 import { Department, Designation, Holiday } from './entities/org.entity';
 import { Employee } from './entities/employee.entity';
-import { HrPolicy, HrPolicyLeaveRule, LeaveType } from './entities/leave.entity';
-import { policyOn, userNames } from './hr-common';
+import { HrPolicy, HrPolicyLeaveRule, LeaveRequest, LeaveType } from './entities/leave.entity';
+import { activePolicies, policyOn, userNames } from './hr-common';
 import { addDays, fromHalves, toHalves } from './hr-math';
 import {
   CreateDepartmentDto,
@@ -274,10 +274,34 @@ export class OrgService {
     if (dto.name !== undefined) t.name = dto.name.trim();
     if (dto.description !== undefined) t.description = dto.description.trim() || null;
     if (dto.sortOrder !== undefined) t.sortOrder = dto.sortOrder;
+
+    const warnings: string[] = [];
+    if (dto.isActive === false && t.isActive) {
+      // A waiting request could never be approved once its type is retired.
+      const pending = await m.count(LeaveRequest, { where: { leaveTypeId: id, status: LeaveRequestStatus.PENDING } });
+      if (pending) {
+        throw new BadRequestException(
+          `${pending} ${t.name.toLowerCase()} request${pending === 1 ? ' is' : 's are'} still waiting for approval. Approve, reject or withdraw ${pending === 1 ? 'it' : 'them'} first.`,
+        );
+      }
+      // Retiring doesn't stop the policy crediting it — say so rather than block, since a new
+      // version can't start in the past and this year's entitlement is already running.
+      const today = businessDate();
+      const active = await activePolicies(m);
+      const inForce = policyOn(active, today);
+      const giving = [inForce, ...active.filter((p) => p.effectiveFrom > today)].filter(
+        (p): p is HrPolicy => Boolean(p?.leaveRules.some((r) => r.leaveTypeId === id)),
+      );
+      if (giving.length) {
+        warnings.push(
+          `${t.name} is retired, but the leave policy (v${giving.map((p) => p.version).join(', v')}) still gives it an entitlement, so balances keep counting it. Publish a policy version without it to stop that.`,
+        );
+      }
+    }
     if (dto.isActive !== undefined) t.isActive = dto.isActive;
     t.updatedBy = user.id;
     await m.save(t);
-    return this.listLeaveTypes();
+    return { leaveTypes: await this.listLeaveTypes(), warnings };
   }
 
   // --- HR policy versions -----------------------------------------------------

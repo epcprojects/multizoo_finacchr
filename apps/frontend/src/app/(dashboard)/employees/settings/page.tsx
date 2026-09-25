@@ -102,8 +102,10 @@ export default function HrSettingsPage() {
   async function act(fn: () => Promise<unknown>, ok: string) {
     setNotice(null);
     try {
-      await fn();
-      setNotice({ tone: 'ok', text: ok });
+      const result = await fn();
+      // Some saves succeed with a caveat (e.g. retiring a leave type the policy still credits).
+      const warnings = (result as { warnings?: string[] } | null)?.warnings ?? [];
+      setNotice(warnings.length ? { tone: 'warn', text: `${ok} ${warnings.join(' ')}` } : { tone: 'ok', text: ok });
       await refresh();
       return true;
     } catch (err) {

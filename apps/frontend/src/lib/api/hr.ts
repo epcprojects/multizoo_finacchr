@@ -538,7 +538,7 @@ export async function createLeaveType(payload: { code: string; name: string; isP
 }
 
 export async function updateLeaveType(id: string, payload: { name?: string; description?: string; isActive?: boolean }) {
-  const { data } = await apiClient.patch<LeaveTypeRecord[]>(`/hr/leave-types/${id}`, payload);
+  const { data } = await apiClient.patch<{ leaveTypes: LeaveTypeRecord[]; warnings: string[] }>(`/hr/leave-types/${id}`, payload);
   return data;
 }
 
