@@ -9,8 +9,9 @@ import { BaseEntity } from '@multizoo/interfaces';
  * account.
  *
  * `userId` links the login of a partner who uses the system; `employeeId`
- * (for a partner who also draws a salary as Director/CEO) arrives with the
- * Employee master in Module 4.
+ * links the Employee record of a partner who also holds an operational
+ * title (Director, CEO) — any salary runs through payroll on that record,
+ * entirely separate from the profit share here (Part 05 worked example).
  */
 @Entity('partners')
 export class Partner extends BaseEntity {
@@ -24,6 +25,10 @@ export class Partner extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   @Index({ unique: true, where: '"userId" IS NOT NULL' })
   userId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index({ unique: true, where: '"employeeId" IS NOT NULL' })
+  employeeId!: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes!: string | null;

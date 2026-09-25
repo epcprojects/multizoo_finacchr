@@ -29,6 +29,7 @@ export const PERMISSION_CATALOG = [
   { label: 'Reverse posted entries', value: 'transactions.reverse' },
   { label: 'Propose allocation rule changes (need approval)', value: 'rules.propose_allocation' },
   { label: 'Run the daily income allocation', value: 'allocation.run' },
+  { label: 'View employee records & HR policy', value: 'employee.view' },
 ];
 
 const MODULE_LABELS: Record<string, string> = {

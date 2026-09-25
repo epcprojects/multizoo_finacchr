@@ -15,6 +15,9 @@ import {
   AccountsIcon,
   UnitsIcon,
   AllocationIcon,
+  EmployeesIcon,
+  AttendanceIcon,
+  LeaveIcon,
 } from '../ui/icons';
 
 type NavItem = {
@@ -23,6 +26,18 @@ type NavItem = {
   icon: ReactNode;
   anyPermissions?: string[];
 };
+
+/** Anyone with an HR duty sees the HR screens (their own units only). */
+const HR_VIEWERS = [
+  'employee.manage',
+  'employee.view',
+  'attendance.mark_own_unit',
+  'leave.approve_own_unit',
+  'disciplinary.raise_own_unit',
+  'disciplinary.approve',
+  'rules.edit_hr_policy',
+  'payroll.run',
+];
 
 const navigationItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
@@ -43,6 +58,24 @@ const navigationItems: NavItem[] = [
     label: 'Allocation',
     icon: <AllocationIcon />,
     anyPermissions: ['ledger.view'],
+  },
+  {
+    href: '/employees',
+    label: 'Employees',
+    icon: <EmployeesIcon />,
+    anyPermissions: HR_VIEWERS,
+  },
+  {
+    href: '/attendance',
+    label: 'Attendance',
+    icon: <AttendanceIcon />,
+    anyPermissions: HR_VIEWERS,
+  },
+  {
+    href: '/leave',
+    label: 'Leave',
+    icon: <LeaveIcon />,
+    anyPermissions: HR_VIEWERS,
   },
   {
     href: '/business-units',

@@ -54,6 +54,9 @@ export enum Permission {
   RULES_PROPOSE_ALLOCATION = 'rules.propose_allocation',
   /** Post the day's allocation (the waterfall) for a unit. */
   ALLOCATION_RUN = 'allocation.run',
+  // Module 4 — Employees, attendance & leave
+  /** See the employee master, HR policy and registers without changing them (Partner: "view only"). */
+  EMPLOYEE_VIEW = 'employee.view',
 }
 
 // ---------------------------------------------------------------------------
@@ -179,4 +182,84 @@ export enum AllocationTargetType {
 export enum AllocationRunStatus {
   POSTED = 'POSTED',
   REVERSED = 'REVERSED',
+}
+
+// ---------------------------------------------------------------------------
+// Employees, attendance & leave (Module 4)
+// ---------------------------------------------------------------------------
+
+export enum EmploymentType {
+  PERMANENT = 'PERMANENT',
+  CONTRACT = 'CONTRACT',
+  DAILY_WAGE = 'DAILY_WAGE',
+  SEASONAL = 'SEASONAL',
+}
+
+/** How base salary is expressed: a monthly figure, or a daily rate (daily-wage staff). */
+export enum PayBasis {
+  MONTHLY = 'MONTHLY',
+  DAILY = 'DAILY',
+}
+
+/** The Bonus Calculator's tiers — the commission pool is split by these (Module 5). */
+export enum BonusTier {
+  MANAGER = 'MANAGER',
+  SUPERVISOR = 'SUPERVISOR',
+  TICKETER = 'TICKETER',
+  WORKER = 'WORKER',
+  /** Not in the commission pool. */
+  NONE = 'NONE',
+}
+
+export enum EmployeeStatus {
+  ACTIVE = 'ACTIVE',
+  /** An exit is recorded; they still appear on sheets up to their exit date. */
+  EXITED = 'EXITED',
+}
+
+/**
+ * One employee's day. On a working day: PRESENT / ABSENT / HALF_DAY /
+ * LEAVE. On a rest day (their weekly off, or a holiday): OFF, or PRESENT /
+ * HALF_DAY when they worked it — an extra day, which is what the salary
+ * sheet's negative "Absent" figures are.
+ */
+export enum AttendanceStatus {
+  PRESENT = 'PRESENT',
+  ABSENT = 'ABSENT',
+  HALF_DAY = 'HALF_DAY',
+  LEAVE = 'LEAVE',
+  OFF = 'OFF',
+}
+
+/** Where an attendance record came from — a device feed posts BIOMETRIC later. */
+export enum AttendanceSource {
+  MANUAL = 'MANUAL',
+  BIOMETRIC = 'BIOMETRIC',
+  /** Written by an approved leave request; changed only by cancelling it. */
+  LEAVE_REQUEST = 'LEAVE_REQUEST',
+}
+
+export enum LeaveRequestStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum DisciplinaryType {
+  FINE = 'FINE',
+  WARNING = 'WARNING',
+}
+
+export enum DisciplinaryStatus {
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
+}
+
+/** An HR policy version is in force from its date, or was replaced before it started. */
+export enum HrPolicyStatus {
+  ACTIVE = 'ACTIVE',
+  SUPERSEDED = 'SUPERSEDED',
 }

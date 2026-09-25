@@ -27,6 +27,8 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.LEDGER_VIEW,
       P.UNITS_ACCESS_ALL,
       P.BUSINESS_UNITS_MANAGE,
+      // Employee master & HR policy: "view only" / "oversight".
+      P.EMPLOYEE_VIEW,
     ],
   },
   [SeedRoleName.ACCOUNTANT]: {

@@ -227,6 +227,11 @@ export class CreatePartnerDto {
   @IsUUID()
   userId?: string;
 
+  /** Their Employee record, if they also hold a salaried title (Director, CEO). */
+  @IsOptional()
+  @IsUUID()
+  employeeId?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -250,6 +255,11 @@ export class UpdatePartnerDto {
   @IsOptional()
   @IsUUID()
   userId?: string | null;
+
+  /** null unlinks the Employee record. */
+  @IsOptional()
+  @IsUUID()
+  employeeId?: string | null;
 
   @IsOptional()
   @IsString()

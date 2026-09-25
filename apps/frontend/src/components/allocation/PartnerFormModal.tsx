@@ -6,6 +6,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import { createPartner, updatePartner, type PartnerRecord } from '../../lib/api/allocation';
 import { listUsers, type UserRecord } from '../../lib/api/users';
+import { listEmployees, type EmployeeRecord } from '../../lib/api/hr';
 import { errorMessage } from '../../lib/money';
 
 type PartnerFormModalProps = {
@@ -13,15 +14,19 @@ type PartnerFormModalProps = {
   partner: PartnerRecord | null;
   /** Holds users.invite — can see the user list to link a login. */
   canLinkUser: boolean;
+  /** Can read the employee master — can link their Employee record. */
+  canLinkEmployee: boolean;
   onClose: () => void;
   onSaved: () => void;
 };
 
 /** Adds or edits a profit-sharing partner. Their share itself is set in each unit's allocation rule. */
-export default function PartnerFormModal({ isOpen, partner, canLinkUser, onClose, onSaved }: PartnerFormModalProps) {
+export default function PartnerFormModal({ isOpen, partner, canLinkUser, canLinkEmployee, onClose, onSaved }: PartnerFormModalProps) {
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
   const [userId, setUserId] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -33,11 +38,13 @@ export default function PartnerFormModal({ isOpen, partner, canLinkUser, onClose
     setName(partner?.name ?? '');
     setShortName(partner?.shortName ?? '');
     setUserId(partner?.userId ?? '');
+    setEmployeeId(partner?.employeeId ?? '');
     setNotes(partner?.notes ?? '');
     setIsActive(partner?.isActive ?? true);
     setError(null);
     if (canLinkUser) void listUsers().then(setUsers).catch(() => setUsers([]));
-  }, [isOpen, partner, canLinkUser]);
+    if (canLinkEmployee) void listEmployees({ status: 'ACTIVE' }).then(setEmployees).catch(() => setEmployees([]));
+  }, [isOpen, partner, canLinkUser, canLinkEmployee]);
 
   async function submit() {
     setError(null);
@@ -52,6 +59,7 @@ export default function PartnerFormModal({ isOpen, partner, canLinkUser, onClose
           notes,
           isActive,
           ...(canLinkUser ? { userId: userId || null } : {}),
+          ...(canLinkEmployee ? { employeeId: employeeId || null } : {}),
         });
       } else {
         await createPartner({
@@ -59,6 +67,7 @@ export default function PartnerFormModal({ isOpen, partner, canLinkUser, onClose
           shortName: shortName.trim(),
           notes: notes.trim() || undefined,
           ...(canLinkUser && userId ? { userId } : {}),
+          ...(canLinkEmployee && employeeId ? { employeeId } : {}),
         });
       }
       onSaved();
@@ -104,6 +113,19 @@ export default function PartnerFormModal({ isOpen, partner, canLinkUser, onClose
             options={[
               { label: 'Not linked', value: '' },
               ...users.filter((u) => u.isActive).map((u) => ({ label: `${u.fullName} · ${u.email}`, value: u.id })),
+            ]}
+          />
+        )}
+        {canLinkEmployee && (
+          <Select
+            label="Employee record (optional)"
+            placeholder="Not an employee"
+            showSearch
+            value={employeeId}
+            onChange={setEmployeeId}
+            options={[
+              { label: 'Not an employee', value: '' },
+              ...employees.map((e) => ({ label: `${e.fullName} · ${e.designation.name} (${e.employeeCode})`, value: e.id })),
             ]}
           />
         )}

@@ -10,6 +10,7 @@ import { AllocationRuleStatus } from '@multizoo/types';
 import { businessDate, fromPaisa, toPaisa } from '@multizoo/utils';
 import { Account } from '../accounts/entities/account.entity';
 import { User } from '../users/entities/user.entity';
+import { Employee } from '../hr/entities/employee.entity';
 import { LedgerService } from '../ledger/ledger.service';
 import type { AuthenticatedUser } from '../users/users.service';
 import { visibleUnitIds } from '../../../common/scope/unit-scope';
@@ -52,6 +53,10 @@ export class PartnersService {
 
     const userIds = partners.map((p) => p.userId).filter(Boolean) as string[];
     const users = userIds.length ? await m.find(User, { where: { id: In(userIds) }, withDeleted: true }) : [];
+    const employeeIds = partners.map((p) => p.employeeId).filter(Boolean) as string[];
+    const employees = employeeIds.length
+      ? await m.find(Employee, { where: { id: In(employeeIds) }, relations: { designation: true }, withDeleted: true })
+      : [];
 
     // Units whose rule in force (or awaiting approval) gives the partner a share.
     const shares: { partnerId: string; code: string; status: AllocationRuleStatus }[] = await m.query(
@@ -83,6 +88,11 @@ export class PartnersService {
         notes: p.notes,
         userId: p.userId,
         userName: users.find((u) => u.id === p.userId)?.fullName ?? null,
+        employeeId: p.employeeId,
+        employee: (() => {
+          const e = employees.find((x) => x.id === p.employeeId);
+          return e ? { id: e.id, employeeCode: e.employeeCode, fullName: e.fullName, designation: e.designation?.name ?? null } : null;
+        })(),
         equityAccount: equity
           ? { id: equity.id, code: equity.code, name: equity.name, balance: balances.get(equity.id) ?? '0.00' }
           : null,
@@ -118,17 +128,26 @@ export class PartnersService {
     if (taken) throw new ConflictException(`${u.fullName} is already linked to ${taken.name}.`);
   }
 
+  private async assertEmployeeFree(m: EntityManager, employeeId: string, exceptId?: string) {
+    const e = await m.findOne(Employee, { where: { id: employeeId } });
+    if (!e) throw new BadRequestException('That employee does not exist.');
+    const taken = await m.findOne(Partner, { where: { employeeId, ...(exceptId ? { id: Not(exceptId) } : {}) } });
+    if (taken) throw new ConflictException(`${e.fullName} is already linked to ${taken.name}.`);
+  }
+
   async create(dto: CreatePartnerDto, user: AuthenticatedUser) {
     const name = dto.name.trim();
     const shortName = dto.shortName.trim().toUpperCase();
     const id = await this.dataSource.transaction(async (m) => {
       await this.assertUnique(m, name, shortName);
       if (dto.userId) await this.assertUserFree(m, dto.userId);
+      if (dto.employeeId) await this.assertEmployeeFree(m, dto.employeeId);
       const partner = await m.save(
         m.create(Partner, {
           name,
           shortName,
           userId: dto.userId ?? null,
+          employeeId: dto.employeeId ?? null,
           notes: dto.notes?.trim() || null,
           createdBy: user.id,
         }),
@@ -148,6 +167,7 @@ export class PartnersService {
       const shortName = dto.shortName?.trim().toUpperCase() ?? partner.shortName;
       if (name !== partner.name || shortName !== partner.shortName) await this.assertUnique(m, name, shortName, id);
       if (dto.userId) await this.assertUserFree(m, dto.userId, id);
+      if (dto.employeeId) await this.assertEmployeeFree(m, dto.employeeId, id);
 
       if (dto.isActive === false && partner.isActive) {
         const inUse = await m
@@ -186,6 +206,7 @@ export class PartnersService {
       partner.name = name;
       partner.shortName = shortName;
       if (dto.userId !== undefined) partner.userId = dto.userId;
+      if (dto.employeeId !== undefined) partner.employeeId = dto.employeeId;
       if (dto.notes !== undefined) partner.notes = dto.notes.trim() || null;
       if (dto.isActive !== undefined) partner.isActive = dto.isActive;
       partner.updatedBy = user.id;

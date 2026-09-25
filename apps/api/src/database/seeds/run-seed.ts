@@ -20,6 +20,17 @@ import { seedAllocation } from './allocation.seed';
 import { Partner } from '../../app/modules/allocation/entities/partner.entity';
 import { AllocationLine, AllocationRule, AllocationTranche } from '../../app/modules/allocation/entities/allocation-rule.entity';
 import { AllocationRun } from '../../app/modules/allocation/entities/allocation-run.entity';
+import { Department, Designation, Holiday } from '../../app/modules/hr/entities/org.entity';
+import { Employee, SalaryRevision } from '../../app/modules/hr/entities/employee.entity';
+import {
+  HrPolicy,
+  HrPolicyLeaveRule,
+  LeaveAdjustment,
+  LeaveRequest,
+  LeaveType,
+} from '../../app/modules/hr/entities/leave.entity';
+import { AttendanceRecord, DisciplinaryRecord } from '../../app/modules/hr/entities/attendance.entity';
+import { seedHr } from './hr.seed';
 
 async function main() {
   const dataSource = new DataSource({
@@ -48,6 +59,18 @@ async function main() {
       AllocationTranche,
       AllocationLine,
       AllocationRun,
+      Department,
+      Designation,
+      Holiday,
+      Employee,
+      SalaryRevision,
+      LeaveType,
+      HrPolicy,
+      HrPolicyLeaveRule,
+      LeaveRequest,
+      LeaveAdjustment,
+      AttendanceRecord,
+      DisciplinaryRecord,
     ],
     synchronize: false,
   });
@@ -59,6 +82,7 @@ async function main() {
   await seedSuperAdmin(dataSource);
   await seedLedger(dataSource);
   await seedAllocation(dataSource);
+  await seedHr(dataSource);
 
   await dataSource.destroy();
   console.log('Done.');

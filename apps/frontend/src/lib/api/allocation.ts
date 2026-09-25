@@ -171,6 +171,9 @@ export interface PartnerRecord {
   notes: string | null;
   userId: string | null;
   userName: string | null;
+  /** Their Employee record, for a partner who also holds a salaried title. */
+  employeeId: string | null;
+  employee: { id: string; employeeCode: string; fullName: string; designation: string | null } | null;
   equityAccount: { id: string; code: string; name: string; balance: string } | null;
   profitReserves: {
     id: string;
@@ -282,14 +285,14 @@ export async function listPartners() {
   return data;
 }
 
-export async function createPartner(payload: { name: string; shortName: string; userId?: string; notes?: string }) {
+export async function createPartner(payload: { name: string; shortName: string; userId?: string; employeeId?: string; notes?: string }) {
   const { data } = await apiClient.post<PartnerRecord>('/partners', payload);
   return data;
 }
 
 export async function updatePartner(
   id: string,
-  payload: Partial<{ name: string; shortName: string; userId: string | null; notes: string; isActive: boolean }>,
+  payload: Partial<{ name: string; shortName: string; userId: string | null; employeeId: string | null; notes: string; isActive: boolean }>,
 ) {
   const { data } = await apiClient.patch<PartnerRecord>(`/partners/${id}`, payload);
   return data;

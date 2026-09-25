@@ -301,6 +301,7 @@ export default function AllocationPage() {
         isOpen={partnerForm.open}
         partner={partnerForm.partner}
         canLinkUser={hasPermission('users.invite')}
+        canLinkEmployee={hasPermission('employee.manage') || hasPermission('employee.view')}
         onClose={() => setPartnerForm({ open: false, partner: null })}
         onSaved={() => {
           setPartnerForm({ open: false, partner: null });

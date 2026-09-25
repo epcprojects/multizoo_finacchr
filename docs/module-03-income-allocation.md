@@ -108,7 +108,7 @@ share among its lines in one of two ways:
 
 | Entity | Key columns | Notes |
 |---|---|---|
-| `Partner` | `name`, `shortName` (unique, e.g. MIK), `userId` (nullable, unique), `notes` | `BaseEntity`. `employeeId` arrives with the Employee master (Module 4) |
+| `Partner` | `name`, `shortName` (unique, e.g. MIK), `userId` (nullable, unique), `notes` | `BaseEntity`. `employeeId` (unique) added by Module 4 — links a partner who also holds a salaried title |
 | `AllocationRule` | `businessUnitId`, `version` (unique per unit), `effectiveFrom` (`date`), `status` (DRAFT / PENDING_APPROVAL / APPROVED / REJECTED / WITHDRAWN / SUPERSEDED), `note`, `submittedBy/At`, `reviewedBy/At`, `reviewNote` | `AuditableEntity`, never deleted. `effectiveTo` is derived from the next approved version |
 | `AllocationTranche` | `ruleId`, `sortOrder`, `name`, `share` `NUMERIC(7,4)`, `method` (PERCENT / PARTS) | |
 | `AllocationLine` | `trancheId`, `targetType` (RESERVE / PARTNER), `accountId` or `partnerId`, `weight` `NUMERIC(10,4)` | `CHECK`: exactly the right target column set; weight > 0 |

@@ -249,3 +249,36 @@ export function AllocationIcon({ fill = 'currentColor' }: { fill?: string }) {
     </svg>
   );
 }
+
+/** Two people — the employee master. */
+export function EmployeesIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <circle cx="10" cy="8.5" r="3.5" stroke={fill} strokeWidth="1.8" />
+      <path d="M3.5 21c0-3.6 2.9-6.2 6.5-6.2s6.5 2.6 6.5 6.2" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="18" cy="9.5" r="2.7" stroke={fill} strokeWidth="1.8" />
+      <path d="M18 14.5c2.6 0 4.5 2 4.5 5" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** A calendar with a tick — the daily sheet. */
+export function AttendanceIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <rect x="3.5" y="5" width="19" height="17" rx="2.5" stroke={fill} strokeWidth="1.8" />
+      <path d="M3.5 10h19M8 3v4M18 3v4" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8.8 15.9l2.6 2.4 5-5" stroke={fill} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** A beach umbrella — time off. */
+export function LeaveIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M13 3.5c-5.2 0-9.5 3.6-9.5 8.2h19c0-4.6-4.3-8.2-9.5-8.2Z" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M13 11.7V21c0 1.2-.9 2-2 2s-2-.8-2-2" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
