@@ -20,7 +20,9 @@ import { AttendanceRecord } from './entities/attendance.entity';
 import { LeaveType } from './entities/leave.entity';
 import {
   activePolicies,
+  assertPayOpen,
   calendarFor,
+  closedPayMonths,
   holidayNames,
   holidaysFor,
   isEmployedOn,
@@ -117,8 +119,14 @@ export class AttendanceService {
     const canMark =
       hasPermission(user, Permission.ATTENDANCE_MARK_OWN_UNIT) || hasPermission(user, Permission.EMPLOYEE_MANAGE);
 
+    const closed = await closedPayMonths(m, employees.map((e) => e.id));
+    const payClosed = employees.filter((e) => closed.get(e.id)?.has(date.slice(0, 7)));
+
     let lockedReason: string | null = null;
     if (!canMark) lockedReason = 'You can view this sheet but not mark it.';
+    else if (payClosed.length && payClosed.length === employees.length) {
+      lockedReason = 'This month’s payroll is finalised — reopen the run to change these days.';
+    }
     else if (date > today) lockedReason = 'Attendance can’t be marked ahead of the day — record planned absences as leave.';
     else if (window.date && date < window.date) {
       lockedReason = `Days more than ${window.days} days back can only be corrected by HR (the Accountant).`;
@@ -138,6 +146,7 @@ export class AttendanceService {
         restReason: reason,
         transferred: e.businessUnitId !== unit.id,
         employed: isEmployedOn(e, date),
+        payLocked: payClosed.includes(e),
         record: rec
           ? {
               status: rec.status,
@@ -209,6 +218,7 @@ export class AttendanceService {
 
       const problems: string[] = [];
       const writes: (() => Promise<unknown>)[] = [];
+      const touched: { employeeId: string; date: IsoDate; name: string }[] = [];
       for (const entry of dto.entries) {
         const e = employees.find((x) => x.id === entry.employeeId);
         if (!e) {
@@ -233,7 +243,10 @@ export class AttendanceService {
         }
 
         if (entry.status === null) {
-          if (rec) writes.push(() => m.delete(AttendanceRecord, { id: rec.id }));
+          if (rec) {
+            writes.push(() => m.delete(AttendanceRecord, { id: rec.id }));
+            touched.push({ employeeId: e.id, date: dto.date, name: who });
+          }
           continue;
         }
 
@@ -282,8 +295,10 @@ export class AttendanceService {
           updatedBy: user.id,
         });
         writes.push(() => m.save(target));
+        touched.push({ employeeId: e.id, date: dto.date, name: who });
       }
       if (problems.length) throw new BadRequestException(problems.join(' '));
+      await assertPayOpen(m, touched);
       for (const w of writes) await w();
     });
     return this.sheet(dto.businessUnitId, dto.date, user);
@@ -291,7 +306,8 @@ export class AttendanceService {
 
   // --- Month register -------------------------------------------------------------
 
-  private async buildRegister(m: EntityManager, employees: Employee[], unitIdForHolidays: string | null, month: string) {
+  /** Each employee's month, day by day, and its summary — the register, and what payroll reads. */
+  async buildRegister(m: EntityManager, employees: Employee[], unitIdForHolidays: string | null, month: string) {
     const { from, to } = monthBounds(month);
     const ids = employees.map((e) => e.id);
     const records = ids.length

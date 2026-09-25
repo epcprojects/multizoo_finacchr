@@ -68,6 +68,7 @@ export class DisciplinaryService {
       reviewedAt: r.reviewedAt,
       reviewedByName: r.reviewedBy ? names.get(r.reviewedBy) ?? null : null,
       reviewNote: r.reviewNote,
+      deductedMonth: r.deductedMonth,
     }));
   }
 

@@ -134,14 +134,18 @@ export enum JournalEntryKind {
   RESERVE_TRANSFER = 'RESERVE_TRANSFER',
   /** Cash a partner takes against their own equity. */
   PARTNER_DRAWING = 'PARTNER_DRAWING',
+  /** A month's salaries owed (payroll run or settlement) — posted only by payroll. */
+  PAYROLL = 'PAYROLL',
 }
 
-/** Where an entry came from — later modules add PAYROLL, … */
+/** Where an entry came from. */
 export enum JournalEntrySource {
   MANUAL = 'MANUAL',
   SYSTEM = 'SYSTEM',
   IMPORT = 'IMPORT',
   ALLOCATION = 'ALLOCATION',
+  /** Payroll runs, salary advances and settlements — undone from the Payroll screens only. */
+  PAYROLL = 'PAYROLL',
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +264,65 @@ export enum DisciplinaryStatus {
 
 /** An HR policy version is in force from its date, or was replaced before it started. */
 export enum HrPolicyStatus {
+  ACTIVE = 'ACTIVE',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+// ---------------------------------------------------------------------------
+// Payroll, incentives & settlement (Module 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * A unit's month of pay. A DRAFT is always recalculated from the live
+ * records; FINALIZED freezes it (payslips snapshotted, cost posted to the
+ * ledger, attendance locked); PAID once every payslip has been paid out.
+ */
+export enum PayrollRunStatus {
+  DRAFT = 'DRAFT',
+  FINALIZED = 'FINALIZED',
+  PAID = 'PAID',
+}
+
+/** Something added to or taken off one person's pay for one run, by hand. */
+export enum PayrollAdjustmentKind {
+  /** Added to the sheet's "Bonus / Incentive" column — transport or food allowance, a one-off incentive. */
+  ALLOWANCE = 'ALLOWANCE',
+  /** The sheet's "Food Exp" column. */
+  FOOD = 'FOOD',
+  /** Any other deduction, with its reason. */
+  DEDUCTION = 'DEDUCTION',
+  /** Recover exactly this much of their advances this month (0 = skip a month). */
+  ADVANCE_RECOVERY = 'ADVANCE_RECOVERY',
+}
+
+export enum SalaryAdvanceStatus {
+  OUTSTANDING = 'OUTSTANDING',
+  RECOVERED = 'RECOVERED',
+  CANCELLED = 'CANCELLED',
+}
+
+/** How a bonus tier's share of the pool divides between the people in it. */
+export enum BonusSplitMethod {
+  /** Equally per head (the Bonus Calculator's ticketers: pool ÷ 3). */
+  EQUAL = 'EQUAL',
+  /** In proportion to a count per person — the supervisors' school trips. */
+  BY_UNITS = 'BY_UNITS',
+}
+
+export enum BonusPoolStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+}
+
+/** Full & final settlement: same life as a payroll run. */
+export enum SettlementStatus {
+  DRAFT = 'DRAFT',
+  FINALIZED = 'FINALIZED',
+  PAID = 'PAID',
+}
+
+/** A payroll policy version is in force from its date, or was replaced before it started. */
+export enum PayrollPolicyStatus {
   ACTIVE = 'ACTIVE',
   SUPERSEDED = 'SUPERSEDED',
 }

@@ -7,6 +7,7 @@ import { Pill, type PillTone } from './ui';
 import ReviewNoteModal, { type ReviewAction } from './ReviewNoteModal';
 import {
   DISCIPLINARY_STATUS_LABELS,
+  formatMonth,
   reviewDisciplinary,
   type DisciplinaryRecordRow,
   type DisciplinaryStatus,
@@ -108,6 +109,11 @@ export default function DisciplinaryTable({ rows, currentUserId, canApprove, sho
                       <p className="mt-1 text-xs text-gray-500">
                         By {r.reviewedByName}
                         {r.reviewNote ? ` — ${r.reviewNote}` : ''}
+                      </p>
+                    )}
+                    {r.type === 'FINE' && r.status === 'APPROVED' && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {r.deductedMonth ? `Deducted from ${formatMonth(r.deductedMonth)} pay` : 'To come off the next payroll'}
                       </p>
                     )}
                   </td>

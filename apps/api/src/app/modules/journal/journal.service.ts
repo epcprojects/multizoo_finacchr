@@ -63,6 +63,8 @@ export interface PostOptions {
 export interface ReverseOptions {
   /** Waterfall entries are undone from the Allocation screen, which keeps its run record in step. */
   fromAllocationEngine?: boolean;
+  /** Payroll, advance and settlement entries are undone from the Payroll screens, for the same reason. */
+  fromPayroll?: boolean;
   source?: JournalEntrySource;
 }
 
@@ -406,6 +408,11 @@ export class JournalService {
     if (original.source === JournalEntrySource.ALLOCATION && !opts.fromAllocationEngine) {
       throw new BadRequestException(
         `${formatEntryNo(original.entryNo)} is a day's income allocation — undo or re-run it from the Allocation screen so the day's record stays in step.`,
+      );
+    }
+    if (original.source === JournalEntrySource.PAYROLL && !opts.fromPayroll) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} was posted by payroll — undo it from the Payroll screen (reopen the run or settlement, or cancel the advance) so its record stays in step.`,
       );
     }
     if (original.kind === JournalEntryKind.REVERSAL) {

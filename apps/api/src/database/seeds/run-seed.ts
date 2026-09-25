@@ -31,6 +31,11 @@ import {
 } from '../../app/modules/hr/entities/leave.entity';
 import { AttendanceRecord, DisciplinaryRecord } from '../../app/modules/hr/entities/attendance.entity';
 import { seedHr } from './hr.seed';
+import { seedPayroll } from './payroll.seed';
+import { PayrollAdjustment, PayrollPolicy, PayrollRun, Payslip } from '../../app/modules/payroll/entities/payroll.entity';
+import { AdvanceRecovery, SalaryAdvance } from '../../app/modules/payroll/entities/advance.entity';
+import { BonusPool, BonusPoolMember } from '../../app/modules/payroll/entities/bonus.entity';
+import { FinalSettlement } from '../../app/modules/payroll/entities/settlement.entity';
 
 async function main() {
   const dataSource = new DataSource({
@@ -71,6 +76,15 @@ async function main() {
       LeaveAdjustment,
       AttendanceRecord,
       DisciplinaryRecord,
+      PayrollPolicy,
+      PayrollRun,
+      PayrollAdjustment,
+      Payslip,
+      SalaryAdvance,
+      AdvanceRecovery,
+      BonusPool,
+      BonusPoolMember,
+      FinalSettlement,
     ],
     synchronize: false,
   });
@@ -83,6 +97,7 @@ async function main() {
   await seedLedger(dataSource);
   await seedAllocation(dataSource);
   await seedHr(dataSource);
+  await seedPayroll(dataSource);
 
   await dataSource.destroy();
   console.log('Done.');

@@ -23,6 +23,7 @@ import { HrPolicy, LeaveAdjustment, LeaveRequest, LeaveType } from './entities/l
 import {
   activePolicies,
   assertNotSelf,
+  assertPayOpen,
   calendarFor,
   holidaysFor,
   loadEmployee,
@@ -568,6 +569,7 @@ export class LeaveService {
       request.id,
     );
     if (a.errors.length) throw new BadRequestException(a.errors.join(' '));
+    await assertPayOpen(m, a.dates.map((date) => ({ employeeId: request.employeeId, date, name: employee.fullName })));
 
     const existing = await m.find(AttendanceRecord, { where: { employeeId: request.employeeId, date: In(a.dates) } });
     for (const date of a.dates) {
@@ -648,6 +650,7 @@ export class LeaveService {
 
       const today = businessDate();
       const days = await m.find(AttendanceRecord, { where: { leaveRequestId: id } });
+      await assertPayOpen(m, days.map((d) => ({ employeeId: d.employeeId, date: d.date })));
       await m.delete(AttendanceRecord, { leaveRequestId: id });
 
       request.status = LeaveRequestStatus.CANCELLED;

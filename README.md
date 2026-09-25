@@ -24,8 +24,8 @@ demoed) before the next starts. See `docs/` for a per-module status file.
 1. **Identity & Access** ✅
 2. **Ledger foundation** (business units, chart of accounts, transactions) ✅
 3. **Income allocation engine** (versioned waterfall rules, partners, reserves) ✅
-4. **Employee, attendance & leave** (employee master, daily sheet, leave balances & approval, fines) ← current
-5. Payroll, incentives & settlement
+4. **Employee, attendance & leave** (employee master, daily sheet, leave balances & approval, fines) ✅
+5. **Payroll, incentives & settlement** (payroll runs, advances, commission pools, full & final settlement, statutory policy) ← current
 6. Loans, utilities & cost centres
 7. Sales, capex & campaigns
 8. PDF reporting suite
@@ -35,10 +35,10 @@ demoed) before the next starts. See `docs/` for a per-module status file.
 ```bash
 cp .env.example .env   # fill in your local Postgres credentials — see docs/database-setup.md
 npm install
-npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts, partners + allocation rules, HR setup (+ sample staff outside production)
+npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts, partners + allocation rules, HR setup (+ sample staff outside production), payroll accounts + payroll policy
 npx nx serve api        # backend on :3000 — Swagger at /api/v1/docs
 npx nx dev frontend      # frontend on :4200
-npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money, allocation + formula parity, HR + salary-sheet parity)
+npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money, allocation + formula parity, HR, payroll + salary-sheet and Bonus Calculator parity)
 ```
 
 Or, on Windows, run both at once (kills anything already on 3000/4200 first,
@@ -52,7 +52,7 @@ start-dev.bat
 
 ```
 apps/
-  api/         NestJS backend — modules/{auth,users,roles,business-units,accounts,journal,ledger,allocation,hr},
+  api/         NestJS backend — modules/{auth,users,roles,business-units,accounts,journal,ledger,allocation,hr,payroll},
                common/{guards,decorators,email,scope}
   frontend/    Next.js frontend (App Router, Tailwind v4)
 libs/
@@ -64,6 +64,7 @@ docs/
   module-02-ledger-foundation.md
   module-03-income-allocation.md
   module-04-employees-attendance-leave.md
+  module-05-payroll-incentives-settlement.md
   database-setup.md              local Postgres role/database setup
 start-dev.bat  Windows: kills 3000/4200, starts backend + frontend each in their own window
 ```

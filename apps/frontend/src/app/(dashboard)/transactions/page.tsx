@@ -31,6 +31,7 @@ const KIND_TONES: Record<EntryKind, string> = {
   ALLOCATION: 'bg-teal-50 text-teal-700 border-teal-200',
   RESERVE_TRANSFER: 'bg-teal-50 text-teal-700 border-teal-200',
   PARTNER_DRAWING: 'bg-orange-50 text-orange-700 border-orange-200',
+  PAYROLL: 'bg-violet-50 text-violet-700 border-violet-200',
 };
 
 export default function TransactionsPage() {

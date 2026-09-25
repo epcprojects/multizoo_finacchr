@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Brackets, EntityManager, In } from 'typeorm';
 import { HrPolicyStatus, Permission } from '@multizoo/types';
 import type { AuthenticatedUser } from '../users/users.service';
@@ -119,4 +119,56 @@ export async function lockEmployees(m: EntityManager, employeeIds: string[]): Pr
   for (const id of [...new Set(employeeIds)].sort()) {
     await m.query(`SELECT pg_advisory_xact_lock(hashtext('hr-employee:' || $1))`, [id]);
   }
+}
+
+/**
+ * Employee-months whose pay is already settled: a finalised payroll run
+ * wrote a payslip for them, or a finalised full & final settlement covers
+ * the month. The days behind that pay are locked (Module 5) — reopening the
+ * run or settlement unlocks them.
+ */
+export async function closedPayMonths(m: EntityManager, employeeIds: string[]): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  const ids = [...new Set(employeeIds)];
+  if (!ids.length) return out;
+  const add = (id: string, month: string) => out.set(id, (out.get(id) ?? new Set()).add(month));
+  const slips: { employeeId: string; month: string }[] = await m.query(
+    `SELECT "employeeId", month FROM payslips WHERE "employeeId" = ANY($1)`,
+    [ids],
+  );
+  for (const s of slips) add(s.employeeId, s.month);
+  const settlements: { employeeId: string; fromMonth: string; exitDate: string }[] = await m.query(
+    `SELECT "employeeId", "fromMonth", "exitDate"::text AS "exitDate" FROM final_settlements WHERE status <> 'DRAFT' AND "employeeId" = ANY($1)`,
+    [ids],
+  );
+  for (const s of settlements) {
+    for (let month = s.fromMonth; month <= s.exitDate.slice(0, 7); month = nextMonth(month)) add(s.employeeId, month);
+  }
+  return out;
+}
+
+function nextMonth(month: string): string {
+  const [y, mo] = month.split('-').map(Number);
+  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+}
+
+/** Refuses a change to any of these days when that month's pay is already finalised. */
+export async function assertPayOpen(
+  m: EntityManager,
+  changes: { employeeId: string; date: IsoDate; name?: string }[],
+): Promise<void> {
+  if (!changes.length) return;
+  const closed = await closedPayMonths(m, changes.map((c) => c.employeeId));
+  const hit = changes.find((c) => closed.get(c.employeeId)?.has(c.date.slice(0, 7)));
+  if (hit) {
+    throw new ConflictException(
+      `${hit.name ? `${hit.name}'s` : 'The'} pay for ${monthName(hit.date)} is already finalised, so ${hit.date} can't change — ` +
+        'reopen that payroll run (or settlement) first.',
+    );
+  }
+}
+
+function monthName(date: IsoDate): string {
+  const [y, mo] = date.split('-').map(Number);
+  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }

@@ -22,7 +22,8 @@ import { Employee, SalaryRevision } from './entities/employee.entity';
 import { Department, Designation } from './entities/org.entity';
 import { AttendanceRecord, DisciplinaryRecord } from './entities/attendance.entity';
 import { LeaveRequest } from './entities/leave.entity';
-import { canSeePay, loadEmployee, lockEmployees, userNames } from './hr-common';
+import { canSeePay, closedPayMonths, loadEmployee, lockEmployees, userNames } from './hr-common';
+import { monthBounds } from './hr-math';
 import {
   CreateEmployeeDto,
   ListEmployeesQueryDto,
@@ -341,6 +342,11 @@ export class EmployeesService {
       if (employee.exitDate && dto.effectiveFrom > employee.exitDate) {
         throw new BadRequestException(`${employee.fullName}'s last working day is ${employee.exitDate}.`);
       }
+      if ((await closedPayMonths(m, [id])).get(id)?.has(dto.effectiveFrom.slice(0, 7))) {
+        throw new ConflictException(
+          `${employee.fullName}'s pay for ${dto.effectiveFrom.slice(0, 7)} is already finalised — start the change from the next month.`,
+        );
+      }
       const existing = await m.findOne(SalaryRevision, { where: { employeeId: id, effectiveFrom: dto.effectiveFrom } });
       if (existing) {
         if (existing.effectiveFrom <= businessDate()) {
@@ -373,7 +379,8 @@ export class EmployeesService {
 
   /**
    * Record that someone is leaving (or has left). They stay on the sheets
-   * up to their last working day. Settlement is Module 5.
+   * up to their last working day; what they're owed is worked out by the
+   * full & final settlement (Payroll).
    */
   async recordExit(id: string, dto: RecordExitDto, user: AuthenticatedUser) {
     await this.dataSource.transaction(async (m) => {
@@ -402,6 +409,19 @@ export class EmployeesService {
           `There is ${leave.status === LeaveRequestStatus.PENDING ? 'a pending' : 'approved'} leave request running to ${leave.endDate}. Cancel it first.`,
         );
       }
+      const [settled]: { status: string }[] = await m.query(
+        `SELECT status FROM final_settlements WHERE "employeeId" = $1 AND status <> 'DRAFT'`,
+        [id],
+      );
+      if (settled) throw new BadRequestException('Their full & final settlement is finalised — reopen it before changing the exit.');
+      const paidAfter = [...((await closedPayMonths(m, [id])).get(id) ?? [])]
+        .filter((month) => monthBounds(month).to > dto.exitDate)
+        .sort();
+      if (paidAfter.length) {
+        throw new BadRequestException(
+          `${employee.fullName} was paid as employed through ${monthBounds(paidAfter[paidAfter.length - 1]).to} — reopen that payroll run first.`,
+        );
+      }
       const salaryAfter = await m.findOne(SalaryRevision, { where: { employeeId: id, effectiveFrom: MoreThan(dto.exitDate) } });
       if (salaryAfter) {
         throw new BadRequestException(`A salary revision starts on ${salaryAfter.effectiveFrom}, after that exit date.`);
@@ -421,6 +441,14 @@ export class EmployeesService {
     const m = this.dataSource.manager;
     const employee = await loadEmployee(m, id, user);
     if (employee.status !== EmployeeStatus.EXITED) throw new ConflictException(`${employee.fullName} hasn't left.`);
+    const [settlement]: { status: string }[] = await m.query(`SELECT status FROM final_settlements WHERE "employeeId" = $1`, [id]);
+    if (settlement) {
+      throw new ConflictException(
+        settlement.status === 'DRAFT'
+          ? 'A settlement is being prepared for this exit — delete the draft first.'
+          : 'Their full & final settlement is already finalised — reopen it first.',
+      );
+    }
     await m.update(Employee, { id }, { status: EmployeeStatus.ACTIVE, exitDate: null, exitReason: null, updatedBy: user.id });
     return this.findOne(id, user);
   }

@@ -11,7 +11,8 @@ export type EntryKind =
   | 'REVERSAL'
   | 'ALLOCATION'
   | 'RESERVE_TRANSFER'
-  | 'PARTNER_DRAWING';
+  | 'PARTNER_DRAWING'
+  | 'PAYROLL';
 
 /** BUCKET (Feed…), PARTNER (a partner's profit reserve), OFFSET (Earmarked Funds). */
 export type ReserveKind = 'BUCKET' | 'PARTNER' | 'OFFSET';
@@ -116,6 +117,7 @@ export const KIND_LABELS: Record<EntryKind, string> = {
   ALLOCATION: 'Allocation',
   RESERVE_TRANSFER: 'Reserve transfer',
   PARTNER_DRAWING: 'Partner drawing',
+  PAYROLL: 'Payroll',
 };
 
 export interface BusinessUnitRecord {
@@ -263,7 +265,7 @@ export interface NewEntryPayload {
   businessUnitId: string;
   description: string;
   reference?: string;
-  kind: Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION'>;
+  kind: Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION' | 'PAYROLL'>;
   lines: { accountId: string; debit?: string; credit?: string; memo?: string }[];
   /** Money out only: the reserve this payment is paid out of. */
   reserveAccountId?: string;

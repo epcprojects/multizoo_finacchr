@@ -206,6 +206,8 @@ export interface SheetRow {
   restReason: 'WEEKLY_OFF' | 'HOLIDAY' | null;
   transferred: boolean;
   employed: boolean;
+  /** That month's pay is finalised for them — the day can't change. */
+  payLocked: boolean;
   record: {
     status: AttendanceStatus;
     leaveTypeId: string | null;
@@ -384,6 +386,8 @@ export interface DisciplinaryRecordRow {
   reviewedAt: string | null;
   reviewedByName: string | null;
   reviewNote: string | null;
+  /** The month whose pay it came off; null until a payroll or settlement collects it. */
+  deductedMonth: string | null;
 }
 
 /** Warnings travel with a result: "saved, but 1 of 2 days isn't covered". */

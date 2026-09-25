@@ -25,7 +25,7 @@ import {
   toPaisa,
 } from '../../lib/money';
 
-type PostableKind = Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION'>;
+type PostableKind = Exclude<EntryKind, 'REVERSAL' | 'ALLOCATION' | 'PAYROLL'>;
 
 const KIND_TABS: { kind: PostableKind; label: string; hint: string; accountantOnly?: boolean }[] = [
   { kind: 'MONEY_IN', label: 'Money in', hint: 'Sales or any money received into cash, bank or wallet.' },

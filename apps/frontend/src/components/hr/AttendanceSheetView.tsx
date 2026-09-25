@@ -79,7 +79,7 @@ export default function AttendanceSheetView({
   }, [sheet]);
 
   const unmarkedWorking = sheet.employees.filter(
-    (r) => r.employed && !r.restDay && !lockedByLeave(r) && !draft[r.id]?.status,
+    (r) => r.employed && !r.restDay && !r.payLocked && !lockedByLeave(r) && !draft[r.id]?.status,
   );
 
   function set(id: string, patch: Partial<Draft>) {
@@ -194,6 +194,7 @@ export default function AttendanceSheetView({
                               </span>
                             )}
                             {r.transferred && <span className="ml-1.5">· since moved to another unit</span>}
+                            {r.payLocked && <span className="ml-1.5 text-gray-600">· month’s pay finalised — locked</span>}
                           </p>
                         </td>
                         <td className="px-4 py-2.5">
@@ -208,7 +209,7 @@ export default function AttendanceSheetView({
                                 <button
                                   key={o.status}
                                   type="button"
-                                  disabled={!editable}
+                                  disabled={!editable || r.payLocked}
                                   onClick={() =>
                                     set(r.id, {
                                       // Tapping the selected status again clears it; a rest day with nothing recorded is simply off.
@@ -233,7 +234,7 @@ export default function AttendanceSheetView({
                               {d.status === 'LEAVE' && (
                                 <select
                                   value={d.leaveTypeId ?? ''}
-                                  disabled={!editable}
+                                  disabled={!editable || r.payLocked}
                                   onChange={(e) => set(r.id, { leaveTypeId: e.target.value || null })}
                                   className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs"
                                   aria-label={`Leave type for ${r.fullName}`}
@@ -252,7 +253,7 @@ export default function AttendanceSheetView({
                         <td className="px-4 py-2.5">
                           <input
                             value={d.note}
-                            disabled={!editable || lockedByLeave(r)}
+                            disabled={!editable || r.payLocked || lockedByLeave(r)}
                             maxLength={500}
                             onChange={(e) => set(r.id, { note: e.target.value })}
                             placeholder={r.record?.markedByName ? `Marked by ${r.record.markedByName}` : ''}

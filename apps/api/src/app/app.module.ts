@@ -14,6 +14,7 @@ import { JournalModule } from './modules/journal/journal.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { AllocationModule } from './modules/allocation/allocation.module';
 import { HrModule } from './modules/hr/hr.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
@@ -42,6 +43,7 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
     LedgerModule,
     AllocationModule,
     HrModule,
+    PayrollModule,
   ],
   controllers: [AppController],
   providers: [

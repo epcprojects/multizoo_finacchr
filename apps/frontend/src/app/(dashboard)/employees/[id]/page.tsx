@@ -18,6 +18,7 @@ import LeaveRequestsTable from '../../../../components/hr/LeaveRequestsTable';
 import LeaveAdjustmentModal from '../../../../components/hr/LeaveAdjustmentModal';
 import DisciplinaryModal from '../../../../components/hr/DisciplinaryModal';
 import DisciplinaryTable from '../../../../components/hr/DisciplinaryTable';
+import EmployeePayTab from '../../../../components/payroll/EmployeePayTab';
 import {
   BONUS_TIER_LABELS,
   EMPLOYMENT_TYPE_LABELS,
@@ -43,7 +44,7 @@ import {
 import { listBusinessUnits, type BusinessUnitRecord } from '../../../../lib/api/ledger';
 import { errorMessage, formatDate, formatMoney, todayIso } from '../../../../lib/money';
 
-type Tab = 'Attendance' | 'Leave' | 'Salary' | 'Fines & warnings' | 'Details';
+type Tab = 'Attendance' | 'Leave' | 'Salary' | 'Pay' | 'Fines & warnings' | 'Details';
 
 /** One employee: their month, their leave, their pay history, their record. */
 export default function EmployeePage() {
@@ -53,6 +54,8 @@ export default function EmployeePage() {
   const canApproveLeave = hasPermission('leave.approve_own_unit');
   const canEnterLeave = canApproveLeave || canManage;
   const canRaise = hasPermission('disciplinary.raise_own_unit') || hasPermission('disciplinary.approve');
+  const canRunPayroll = hasPermission('payroll.run');
+  const canSeePayroll = canRunPayroll || hasPermission('employee.view');
 
   const [employee, setEmployee] = useState<EmployeeRecord | null>(null);
   const [tab, setTab] = useState<Tab>('Attendance');
@@ -106,7 +109,7 @@ export default function EmployeePage() {
   }
 
   const e = employee;
-  const tabs: Tab[] = ['Attendance', 'Leave', ...(e?.salary ? (['Salary'] as Tab[]) : []), 'Fines & warnings', 'Details'];
+  const tabs: Tab[] = ['Attendance', 'Leave', ...(e?.salary ? (['Salary'] as Tab[]) : []), ...(canSeePayroll ? (['Pay'] as Tab[]) : []), 'Fines & warnings', 'Details'];
   const active = e && (e.status === 'ACTIVE' || e.isLeaving);
 
   return (
@@ -367,6 +370,8 @@ export default function EmployeePage() {
               </table>
             </div>
           )}
+
+          {tab === 'Pay' && e && <EmployeePayTab employee={e} canRun={canRunPayroll} />}
 
           {tab === 'Fines & warnings' && (
             <DisciplinaryTable

@@ -18,6 +18,7 @@ import {
   EmployeesIcon,
   AttendanceIcon,
   LeaveIcon,
+  PayrollIcon,
   FinanceIcon,
   HrIcon,
   SettingsIcon,
@@ -74,6 +75,7 @@ const navigation: NavEntry[] = [
       { href: '/employees', label: 'Employees', icon: <EmployeesIcon />, anyPermissions: HR_VIEWERS },
       { href: '/attendance', label: 'Attendance', icon: <AttendanceIcon />, anyPermissions: HR_VIEWERS },
       { href: '/leave', label: 'Leave', icon: <LeaveIcon />, anyPermissions: HR_VIEWERS },
+      { href: '/payroll', label: 'Payroll', icon: <PayrollIcon />, anyPermissions: ['payroll.run', 'employee.view'] },
     ],
   },
   {
@@ -88,6 +90,12 @@ const navigation: NavEntry[] = [
         label: 'HR setup',
         icon: <HrIcon />,
         anyPermissions: ['employee.manage', 'employee.view', 'rules.edit_hr_policy'],
+      },
+      {
+        href: '/payroll/settings',
+        label: 'Payroll setup',
+        icon: <PayrollIcon />,
+        anyPermissions: ['payroll.run', 'employee.view', 'rules.edit_hr_policy'],
       },
       { href: '/users', label: 'Users', icon: <UsersIcon />, anyPermissions: ['users.invite'] },
       { href: '/roles', label: 'Roles', icon: <RolesIcon />, anyPermissions: ['roles.manage', 'users.invite'] },

@@ -332,3 +332,14 @@ export function ChevronIcon({ open }: { open: boolean }) {
     </svg>
   );
 }
+
+/** A banknote — Payroll. */
+export function PayrollIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <rect x="3" y="6.5" width="20" height="13" rx="2.5" stroke={fill} strokeWidth="1.8" />
+      <circle cx="13" cy="13" r="2.8" stroke={fill} strokeWidth="1.8" />
+      <path d="M6.5 10h1.5M18 16h1.5" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}

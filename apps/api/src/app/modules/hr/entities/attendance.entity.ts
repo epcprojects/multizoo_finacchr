@@ -90,8 +90,9 @@ export class AttendanceRecord extends AuditableEntity {
  * A fine or a warning (architecture plan Part 05, "DisciplinaryRecord") —
  * reason, amount, who raised it, who approved it — instead of a bare
  * number in the salary sheet's Fine column. A Branch Manager raises it for
- * their unit; the Accountant approves. Approved fines are what payroll
- * deducts (Module 5).
+ * their unit; the Accountant approves. An approved fine comes off the
+ * first payroll (or settlement) finalised for a month it falls in or
+ * before — so one approved late is still collected, once.
  */
 @Entity('disciplinary_records')
 @Index(['employeeId', 'incidentDate'])
@@ -138,4 +139,15 @@ export class DisciplinaryRecord extends AuditableEntity {
 
   @Column({ type: 'text', nullable: true })
   reviewNote!: string | null;
+
+  /** The month whose pay it came off — set when a payroll run or settlement is finalised. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  deductedMonth!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  payslipId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  settlementId!: string | null;
 }
