@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
@@ -18,9 +18,11 @@ import {
   EMPLOYMENT_TYPE_LABELS,
   WEEKDAYS,
   getEmployeeStats,
+  listDepartments,
   listDesignations,
   listDisciplinary,
   listEmployees,
+  type DepartmentRecord,
   type DesignationRecord,
   type DisciplinaryRecordRow,
   type DisciplinaryStatus,
@@ -57,6 +59,9 @@ export default function EmployeesPage() {
   const [unitId, setUnitId] = useState('');
   const [status, setStatus] = useState<EmployeeStatus | ''>('ACTIVE');
   const [fineStatus, setFineStatus] = useState<DisciplinaryStatus | ''>('');
+  const [departmentId, setDepartmentId] = useState('');
+  const [designationId, setDesignationId] = useState('');
+  const [departments, setDepartments] = useState<DepartmentRecord[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [fineOpen, setFineOpen] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
@@ -64,7 +69,12 @@ export default function EmployeesPage() {
   const refresh = useCallback(async () => {
     try {
       const [e, s, f] = await Promise.all([
-        listEmployees({ businessUnitId: unitId || undefined, status: status || undefined }),
+        listEmployees({
+          businessUnitId: unitId || undefined,
+          status: status || undefined,
+          departmentId: departmentId || undefined,
+          designationId: designationId || undefined,
+        }),
         getEmployeeStats(),
         listDisciplinary({ businessUnitId: unitId || undefined, status: fineStatus || undefined }),
       ]);
@@ -74,7 +84,7 @@ export default function EmployeesPage() {
     } catch (err) {
       setNotice({ tone: 'error', text: errorMessage(err, 'Could not load employees.') });
     }
-  }, [unitId, status, fineStatus]);
+  }, [unitId, status, fineStatus, departmentId, designationId]);
 
   useEffect(() => {
     void refresh();
@@ -83,7 +93,21 @@ export default function EmployeesPage() {
   useEffect(() => {
     void listBusinessUnits().then((u) => setUnits(u.filter((x) => x.isActive)));
     void listDesignations().then(setDesignations);
+    void listDepartments().then(setDepartments);
+    // Links from HR setup and Units arrive as ?departmentId= / ?designationId= / ?businessUnitId=.
+    const params = new URLSearchParams(window.location.search);
+    setDepartmentId(params.get('departmentId') ?? '');
+    setDesignationId(params.get('designationId') ?? '');
+    setUnitId(params.get('businessUnitId') ?? '');
   }, []);
+
+  const department = departments.find((d) => d.id === departmentId);
+  const designationFilter = designations.find((d) => d.id === designationId);
+  function clearFilter(which: 'department' | 'designation') {
+    if (which === 'department') setDepartmentId('');
+    else setDesignationId('');
+    window.history.replaceState(null, '', '/employees');
+  }
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -122,7 +146,7 @@ export default function EmployeesPage() {
             <>
               {canSeeSettings && (
                 <Link href="/employees/settings" className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50">
-                  HR settings
+                  HR setup
                 </Link>
               )}
               {tab === 'Fines & warnings' && canRaise && (
@@ -191,6 +215,19 @@ export default function EmployeesPage() {
               </div>
             )}
           </div>
+
+          {tab === 'Employees' && (department || designationFilter) && (
+            <div className="flex flex-wrap gap-2">
+              {department && (
+                <FilterChip onClear={() => clearFilter('department')}>
+                  Department: {department.name} ({department.businessUnit.name})
+                </FilterChip>
+              )}
+              {designationFilter && (
+                <FilterChip onClear={() => clearFilter('designation')}>Designation: {designationFilter.name}</FilterChip>
+              )}
+            </div>
+          )}
 
           {tab === 'Employees' ? (
             !employees ? (
@@ -303,5 +340,16 @@ export default function EmployeesPage() {
         }}
       />
     </div>
+  );
+}
+
+function FilterChip({ children, onClear }: { children: ReactNode; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent-soft px-3 py-1 text-sm text-accent-ink">
+      {children}
+      <button type="button" onClick={onClear} aria-label="Remove filter" className="text-xs opacity-70 hover:opacity-100">
+        ✕
+      </button>
+    </span>
   );
 }

@@ -85,7 +85,7 @@ const navigation: NavEntry[] = [
       { href: '/accounts/settings', label: 'Chart', icon: <AccountsIcon />, anyPermissions: ['accounts.manage'] },
       {
         href: '/employees/settings',
-        label: 'HR policy',
+        label: 'HR setup',
         icon: <HrIcon />,
         anyPermissions: ['employee.manage', 'employee.view', 'rules.edit_hr_policy'],
       },

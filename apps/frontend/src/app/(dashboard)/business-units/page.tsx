@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import clsx from 'clsx';
 import { useUser } from '../../../components/layout/UserProvider';
 import Button from '../../../components/ui/Button';
@@ -15,9 +16,23 @@ import {
   type CashPosition,
 } from '../../../lib/api/ledger';
 import { formatMoney } from '../../../lib/money';
+import { listDepartments, listEmployees, type DepartmentRecord } from '../../../lib/api/hr';
+
+/** Holders of any of these can read departments and staff. */
+const HR_VIEWERS = [
+  'employee.manage',
+  'employee.view',
+  'attendance.mark_own_unit',
+  'leave.approve_own_unit',
+  'disciplinary.raise_own_unit',
+  'disciplinary.approve',
+  'rules.edit_hr_policy',
+  'payroll.run',
+];
 
 export default function BusinessUnitsPage() {
-  const { hasPermission } = useUser();
+  const { hasPermission, hasAnyPermission } = useUser();
+  const canViewHr = hasAnyPermission(HR_VIEWERS);
   const canManage = hasPermission('business_units.manage');
   const canViewLedger = hasPermission('ledger.view');
   const canManageAccounts = hasPermission('accounts.manage');
@@ -25,6 +40,8 @@ export default function BusinessUnitsPage() {
   const [units, setUnits] = useState<BusinessUnitRecord[]>([]);
   const [position, setPosition] = useState<CashPosition | null>(null);
   const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState<DepartmentRecord[]>([]);
+  const [staffByUnit, setStaffByUnit] = useState<Map<string, number>>(new Map());
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -39,10 +56,17 @@ export default function BusinessUnitsPage() {
       ]);
       setUnits(u);
       setPosition(p);
+      if (canViewHr) {
+        const [d, staff] = await Promise.all([listDepartments(), listEmployees({ status: 'ACTIVE' })]);
+        setDepartments(d.filter((x) => x.isActive));
+        const counts = new Map<string, number>();
+        for (const e of staff) counts.set(e.businessUnit.id, (counts.get(e.businessUnit.id) ?? 0) + 1);
+        setStaffByUnit(counts);
+      }
     } finally {
       setLoading(false);
     }
-  }, [canViewLedger]);
+  }, [canViewLedger, canViewHr]);
 
   useEffect(() => {
     void refresh();
@@ -70,8 +94,9 @@ export default function BusinessUnitsPage() {
         <div className="flex h-auto min-h-0 flex-none flex-col gap-4 overflow-visible rounded-xl bg-white p-4 shadow-[0_0_35px_0_rgb(0_0_0/0.04)] md:p-5 xl:h-full xl:flex-1 xl:overflow-hidden">
           <div className="flex shrink-0 items-center justify-between gap-3">
             <p className="text-sm text-gray-600">
-              Each unit owns its cash, bank, wallet and reserve accounts. Income and expense categories are shared across
-              the group.
+              <b className="font-semibold text-gray-800">A business unit is one business the group owns</b> — with its own
+              cash, bank, wallet and reserves, and its own income allocation. Every employee belongs to one unit; inside
+              it they can be grouped into departments (teams). Income and expense categories are shared across the group.
             </p>
             {canManage && (
               <Button className="shrink-0 rounded-full" icon={<PlusIcon width="20" height="20" />} onClick={() => setWizardOpen(true)}>
@@ -124,6 +149,33 @@ export default function BusinessUnitsPage() {
                                   </p>
                                 </div>
                               ))}
+                          </div>
+                        )}
+                        {canViewHr && !u.isHolding && (
+                          <div>
+                            <p className="mb-1.5 text-xs text-gray-500">
+                              <Link href={`/employees?businessUnitId=${u.id}`} className="hover:text-accent hover:underline">
+                                {staffByUnit.get(u.id) ?? 0} staff
+                              </Link>{' '}
+                              · departments
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {departments.filter((d) => d.businessUnit.id === u.id).length ? (
+                                departments
+                                  .filter((d) => d.businessUnit.id === u.id)
+                                  .map((d) => (
+                                    <Link
+                                      key={d.id}
+                                      href={`/employees?departmentId=${d.id}`}
+                                      className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-800 hover:border-sky-400"
+                                    >
+                                      {d.name} · {d.headcount}
+                                    </Link>
+                                  ))
+                              ) : (
+                                <span className="text-xs text-gray-400">None yet — add them under Settings → HR setup.</span>
+                              )}
+                            </div>
                           </div>
                         )}
                         <div>

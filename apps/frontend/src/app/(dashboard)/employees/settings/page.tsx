@@ -42,7 +42,7 @@ const TABS = ['Leave policy', 'Holidays', 'Leave types', 'Departments', 'Designa
 type Tab = (typeof TABS)[number];
 
 /**
- * Employees → HR settings: every number the HR screens run on, editable
+ * Employees → HR setup: every number the HR screens run on, editable
  * without a developer (architecture plan Part 04, "Self-service"). Leave
  * quotas are versioned (a change starts on a date); job titles, departments
  * and holidays are low-impact and save immediately.
@@ -92,7 +92,7 @@ export default function HrSettingsPage() {
   }, [holidayYear]);
 
   useEffect(() => {
-    void refresh().catch((err) => setNotice({ tone: 'error', text: errorMessage(err, 'Could not load HR settings.') }));
+    void refresh().catch((err) => setNotice({ tone: 'error', text: errorMessage(err, 'Could not load HR setup.') }));
   }, [refresh]);
 
   useEffect(() => {
@@ -121,8 +121,8 @@ export default function HrSettingsPage() {
         <div className="shrink-0">
           <PageBanner
             imageSrc="/employees-icon.svg"
-            imageAlt="HR settings"
-            title="HR settings"
+            imageAlt="HR setup"
+            title="HR setup"
             stats={[
               { title: 'Policy in force', count: current ? `v${current.version}` : '—', color: '#34D399' },
               { title: `Holidays ${holidayYear}`, count: holidays.length, color: '#A78BFA' },
@@ -135,7 +135,7 @@ export default function HrSettingsPage() {
           <Link href="/employees" className="hover:text-accent">
             Employees
           </Link>{' '}
-          / HR settings
+          / HR setup
         </p>
 
         <NoticeLine notice={notice} onClose={() => setNotice(null)} />
@@ -327,6 +327,15 @@ export default function HrSettingsPage() {
 
           {tab === 'Departments' && (
             <div className="flex flex-col gap-4">
+              <p className="max-w-3xl text-sm text-gray-600">
+                <b className="font-semibold text-gray-800">Departments are teams within a business unit</b> — Animal Care
+                inside Multi Zoo, Kitchen inside Panda Cafe. They only group people: on the attendance sheet and in the
+                employee list. They hold no money; cash, bank and reserves belong to the{' '}
+                <Link href="/business-units" className="text-accent hover:underline">
+                  business unit
+                </Link>
+                .
+              </p>
               {canOrg && (
                 <div className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 md:grid-cols-[260px_minmax(0,1fr)_auto] md:items-end">
                   <UnitPicker units={units} value={dUnit} onChange={setDUnit} label="Unit" />
@@ -358,7 +367,7 @@ export default function HrSettingsPage() {
                                 onSave={(name) => act(() => updateDepartment(d.id, { name }), 'Department renamed.')}
                               />
                               <span className="flex shrink-0 items-center gap-2 text-xs text-gray-500">
-                                {d.headcount} staff
+                                <StaffLink count={d.headcount} href={`/employees?departmentId=${d.id}`} />
                                 {canOrg && (
                                   <button
                                     type="button"
@@ -433,7 +442,9 @@ export default function HrSettingsPage() {
                             BONUS_TIER_LABELS[d.bonusTier]
                           )}
                         </td>
-                        <td className="px-4 py-2 text-right tabular-nums">{d.headcount}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          <StaffLink count={d.headcount} href={`/employees?designationId=${d.id}`} />
+                        </td>
                         <td className="px-4 py-2 text-right">
                           {canOrg && (
                             <button
@@ -467,6 +478,16 @@ export default function HrSettingsPage() {
         }}
       />
     </div>
+  );
+}
+
+/** "7 staff", linking to the employee list filtered to them. */
+function StaffLink({ count, href }: { count: number; href: string }) {
+  if (!count) return <span className="text-gray-400">0 staff</span>;
+  return (
+    <Link href={href} className="text-gray-700 underline decoration-gray-300 underline-offset-2 hover:text-accent hover:decoration-accent">
+      {count} staff
+    </Link>
   );
 }
 

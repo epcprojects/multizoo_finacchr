@@ -125,7 +125,7 @@ export function UnitPicker({
   return (
     <Select
       label={label}
-      placeholder="All units"
+      placeholder={allowAll ? 'All units' : 'Choose a unit'}
       value={value}
       onChange={onChange}
       options={[
