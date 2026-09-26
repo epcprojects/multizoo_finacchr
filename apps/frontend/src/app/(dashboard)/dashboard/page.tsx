@@ -10,6 +10,7 @@ import Button from '../../../components/ui/Button';
 import NewEntryPanel from '../../../components/ledger/NewEntryPanel';
 import EntryDetailModal from '../../../components/ledger/EntryDetailModal';
 import { PlusIcon } from '../../../components/ui/icons';
+import PdfButton from '../../../components/reports/PdfButton';
 import {
   getCashPosition,
   KIND_LABELS,
@@ -109,16 +110,19 @@ export default function DashboardPage() {
             <div className="flex min-h-0 flex-col overflow-hidden rounded-xl bg-white p-4 shadow-[0_0_35px_0_rgb(0_0_0/0.04)] md:p-5">
               <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
                 <p className="text-lg font-bold text-black">Cash position by unit</p>
-                <label className="flex items-center gap-2 text-sm text-gray-600">
-                  As of
-                  <input
-                    type="date"
-                    value={asOf}
-                    max={todayIso()}
-                    onChange={(e) => e.target.value && setAsOf(e.target.value)}
-                    className="h-9 rounded-lg border border-gray-200 px-2 text-sm text-gray-800"
-                  />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    As of
+                    <input
+                      type="date"
+                      value={asOf}
+                      max={todayIso()}
+                      onChange={(e) => e.target.value && setAsOf(e.target.value)}
+                      className="h-9 rounded-lg border border-gray-200 px-2 text-sm text-gray-800"
+                    />
+                  </label>
+                  <PdfButton report="cash-position" params={{ asOf }} />
+                </div>
               </div>
               <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-gray-200">
                 <table className="w-full min-w-160 text-left">

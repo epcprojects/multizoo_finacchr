@@ -26,6 +26,7 @@ import {
   type PaybackState,
 } from '../../../lib/api/capex';
 import { errorMessage, formatDate, formatMoney, todayIso } from '../../../lib/money';
+import PdfButton from '../../../components/reports/PdfButton';
 
 const th = 'px-3 py-2.5 font-semibold';
 const td = 'px-3 py-2';
@@ -100,11 +101,14 @@ export default function CapexPage() {
           title="Capital purchases"
           subtitle="Rides, machines, fit-outs — each with the months it’s expected to take to pay for itself. Link its takings on the price list to see how far it has got."
           actions={
-            canManage && (
-              <Button icon={<PlusIcon />} onClick={() => setEditing('new')}>
-                Record a purchase
-              </Button>
-            )
+            <>
+              <PdfButton report="capex-register" params={{ businessUnitId: unitId, status }} label="Register PDF" />
+              {canManage && (
+                <Button icon={<PlusIcon />} onClick={() => setEditing('new')}>
+                  Record a purchase
+                </Button>
+              )}
+            </>
           }
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

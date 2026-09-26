@@ -19,6 +19,7 @@ import {
   type CounterpartyStatement,
 } from '../../../../../lib/api/loans';
 import { errorMessage, formatDate, formatMoney } from '../../../../../lib/money';
+import PdfButton from '../../../../../components/reports/PdfButton';
 
 const th = 'px-3 py-2.5 font-semibold';
 const td = 'px-3 py-2.5';
@@ -89,6 +90,7 @@ export default function CounterpartyPage() {
                 </Button>
               )}
               {canInitiate && c.kind !== 'BUSINESS_UNIT' && c.isActive && <Button onClick={() => setNewLoan(true)}>New loan</Button>}
+              <PdfButton report="loans" params={{ counterpartyId: id }} label="Statement PDF" />
               <Button variant="secondary" onClick={() => window.print()}>
                 Print
               </Button>

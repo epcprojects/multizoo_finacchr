@@ -25,6 +25,7 @@ import {
   type SettlementDetail,
 } from '../../../../../lib/api/payroll';
 import { errorMessage, formatDate, formatMoney, isAmount, todayIso, toPaisa } from '../../../../../lib/money';
+import PdfButton from '../../../../../components/reports/PdfButton';
 
 function Row({ label, sub, amount, minus, strong }: { label: ReactNode; sub?: ReactNode; amount: string; minus?: boolean; strong?: boolean }) {
   if (!strong && toPaisa(amount) === 0n) return null;
@@ -116,6 +117,7 @@ export default function SettlementPage() {
           }
           actions={
             <span className="flex flex-wrap gap-2 print:hidden">
+              <PdfButton report="settlement" params={{ settlementId: id }} />
               <Button variant="secondary" onClick={() => window.print()}>
                 Print
               </Button>

@@ -20,6 +20,7 @@ import {
 } from '../../../lib/api/hr';
 import { listBusinessUnits, type BusinessUnitRecord } from '../../../lib/api/ledger';
 import { errorMessage, todayIso } from '../../../lib/money';
+import PdfButton from '../../../components/reports/PdfButton';
 
 const TABS = ['Daily sheet', 'Monthly register'] as const;
 type Tab = (typeof TABS)[number];
@@ -170,7 +171,10 @@ export default function AttendancePage() {
                 )}
               </div>
             ) : (
-              <MonthPicker value={month} onChange={setMonth} max={currentMonth(today)} />
+              <div className="flex flex-wrap items-center gap-2">
+                <MonthPicker value={month} onChange={setMonth} max={currentMonth(today)} />
+                {unitId && <PdfButton report="attendance-summary" params={{ month, businessUnitId: unitId }} label="Summary PDF" />}
+              </div>
             )}
           </div>
 

@@ -27,18 +27,18 @@ demoed) before the next starts. See `docs/` for a per-module status file.
 4. **Employee, attendance & leave** (employee master, daily sheet, leave balances & approval, fines) ✅
 5. **Payroll, incentives & settlement** (payroll runs, advances, commission pools, full & final settlement, statutory policy) ✅
 6. **Loans, utilities & cost centres** (counterparty loans with Partner approval, inter-unit accounts, staff-advance write-offs, utility sub-meter allocation, cost-centre routing) ✅
-7. **Sales, capex & campaigns** (price lists, daily sales posted as money in, day × month / by-item / YoY / Eid rollups, capex register with payback, campaigns with their own fund & P&L) ← current
-8. PDF reporting suite
+7. **Sales, capex & campaigns** (price lists, daily sales posted as money in, day × month / by-item / YoY / Eid rollups, capex register with payback, campaigns with their own fund & P&L) ✅
+8. **PDF reporting suite** (18 reports built from the screens' own services — P&L, category rollup, expenses, partner profit & drawings statement, payroll register & payslips, settlement, bonus sheet, attendance, headcount, disciplinary, loans, utility bill, sales incl. YoY/Eid, capex register, campaign P&L, cost centre; an archive of every PDF; schedules) ← current
 
 ## Local development
 
 ```bash
 cp .env.example .env   # fill in your local Postgres credentials — see docs/database-setup.md
 npm install
-npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts, partners + allocation rules, HR setup (+ sample staff outside production), payroll accounts + payroll policy, the 342 cost centre + the two shared utility connections, Multi Zoo's 33 ticket types + a day-total item per unit, Eid-ul-Fitr/Azha 2022–2026 (+ the Dir Invst Zoo capex log outside production)
+npx nx run api:seed    # roles, bootstrap super-admin (prints its password once), 7 business units + chart of accounts, partners + allocation rules, HR setup (+ sample staff outside production), payroll accounts + payroll policy, the 342 cost centre + the two shared utility connections, Multi Zoo's 33 ticket types + a day-total item per unit, Eid-ul-Fitr/Azha 2022–2026 (+ the Dir Invst Zoo capex log outside production), the nightly cash position / weekly expenses / monthly P&L report schedules
 npx nx serve api        # backend on :3000 — Swagger at /api/v1/docs
 npx nx dev frontend      # frontend on :4200
-npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money, allocation + formula parity, HR, payroll + salary-sheet and Bonus Calculator parity, loans, Sub Meters Details and 342 parity, Ticket sales / Eid / Dir Invst Zoo / Ramazan parity)
+npx jest -c apps/api/jest.config.js   # API unit tests (ledger math, money, allocation + formula parity, HR, payroll + salary-sheet and Bonus Calculator parity, loans, Sub Meters Details and 342 parity, Ticket sales / Eid / Dir Invst Zoo / Ramazan parity, MULTIZOO P&L block and partner statement parity)
 ```
 
 Or, on Windows, run both at once (kills anything already on 3000/4200 first,
@@ -53,7 +53,7 @@ start-dev.bat
 ```
 apps/
   api/         NestJS backend — modules/{auth,users,roles,business-units,accounts,journal,ledger,allocation,hr,payroll,
-                       loans,utilities,cost-centres,sales,capex},
+                       loans,utilities,cost-centres,sales,capex,reports},
                common/{guards,decorators,email,scope}
   frontend/    Next.js frontend (App Router, Tailwind v4)
 libs/
@@ -68,6 +68,7 @@ docs/
   module-05-payroll-incentives-settlement.md
   module-06-loans-utilities-cost-centres.md
   module-07-sales-capex-campaigns.md
+  module-08-pdf-reporting.md
   database-setup.md              local Postgres role/database setup
 start-dev.bat  Windows: kills 3000/4200, starts backend + frontend each in their own window
 ```

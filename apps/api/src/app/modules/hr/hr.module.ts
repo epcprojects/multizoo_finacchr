@@ -37,6 +37,6 @@ import {
   ],
   controllers: [HrSetupController, EmployeesController, AttendanceController, LeaveController, DisciplinaryController],
   providers: [OrgService, EmployeesService, AttendanceService, LeaveService, DisciplinaryService],
-  exports: [LeaveService, AttendanceService],
+  exports: [LeaveService, AttendanceService, DisciplinaryService, EmployeesService],
 })
 export class HrModule {}

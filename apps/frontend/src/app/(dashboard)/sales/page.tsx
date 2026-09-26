@@ -36,6 +36,7 @@ import {
   type YearOverYear,
 } from '../../../lib/api/sales';
 import { errorMessage, formatDate, formatMoney, todayIso } from '../../../lib/money';
+import PdfButton from '../../../components/reports/PdfButton';
 
 const TABS = ['Days', 'Daily grid', 'By item', 'Year on year', 'Eid & events', 'Price list'] as const;
 type Tab = (typeof TABS)[number];
@@ -110,11 +111,16 @@ export default function SalesPage() {
         <Section
           title={<Tabs tabs={tabs} value={tab} onChange={setTab} counts={{ Days: stats?.drafts ?? 0 }} />}
           actions={
-            canEnter && (
-              <Button icon={<PlusIcon />} onClick={() => setOpening(true)}>
-                Enter sales
-              </Button>
-            )
+            <>
+              {tab !== 'Days' && tab !== 'Price list' && (
+                <PdfButton report="sales" params={{ year, businessUnitId: unitId }} label={`Sales ${year} PDF`} />
+              )}
+              {canEnter && (
+                <Button icon={<PlusIcon />} onClick={() => setOpening(true)}>
+                  Enter sales
+                </Button>
+              )}
+            </>
           }
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

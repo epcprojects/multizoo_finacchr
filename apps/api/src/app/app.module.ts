@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { environment } from '../../environments/environment';
@@ -20,6 +21,7 @@ import { UtilitiesModule } from './modules/utilities/utilities.module';
 import { CostCentresModule } from './modules/cost-centres/cost-centres.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { CapexModule } from './modules/capex/capex.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
@@ -39,6 +41,8 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
         return { ...postgresConfig };
       },
     }),
+    // Scheduled reports (Module 8).
+    ScheduleModule.forRoot(),
     AuthModule,
     UsersModule,
     RolesModule,
@@ -54,6 +58,7 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
     CostCentresModule,
     SalesModule,
     CapexModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

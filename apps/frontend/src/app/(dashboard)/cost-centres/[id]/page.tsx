@@ -12,6 +12,7 @@ import { formatMonth } from '../../../../lib/api/hr';
 import { listJournalEntries, type JournalEntryRecord } from '../../../../lib/api/ledger';
 import { getCostCentreReport, type CostCentreReport } from '../../../../lib/api/cost-centres';
 import { errorMessage, formatDate, formatMoney, todayIso, toPaisa } from '../../../../lib/money';
+import PdfButton from '../../../../components/reports/PdfButton';
 
 const th = 'px-4 py-2.5 font-semibold';
 const td = 'px-4 py-2.5';
@@ -68,9 +69,12 @@ export default function CostCentreReportPage() {
           }
           subtitle={c.description ?? undefined}
           actions={
-            <Button variant="secondary" onClick={() => window.print()}>
-              Print
-            </Button>
+            <>
+              <PdfButton report="cost-centre" params={{ costCentreId: id, from, to }} />
+              <Button variant="secondary" onClick={() => window.print()}>
+                Print
+              </Button>
+            </>
           }
         >
           <div className="flex flex-wrap items-end gap-3">

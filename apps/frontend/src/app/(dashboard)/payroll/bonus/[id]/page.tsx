@@ -19,6 +19,8 @@ import {
   type BonusPoolDetail,
 } from '../../../../../lib/api/payroll';
 import { errorMessage, formatMoney, fromPaisa, isAmount, toPaisa } from '../../../../../lib/money';
+import PdfButton from '../../../../../components/reports/PdfButton';
+
 
 type Member = { employeeId: string; tier: BonusTier; units: string };
 const UNITS = /^\d{1,8}(\.\d{1,2})?$/;
@@ -112,7 +114,9 @@ export default function BonusPoolPage() {
           }
           subtitle={`${pool.businessUnit.name} · paid with ${formatMonth(pool.month)} salaries · rules from payroll policy v${pool.policyVersion}${pool.approvedByName ? ` · approved by ${pool.approvedByName}` : ''}`}
           actions={
-            canRun && (
+            <>
+              <PdfButton report="bonus-sheet" params={{ poolId: pool.id }} />
+              {canRun && (
               <>
                 {draft && (
                   <Button variant="secondary" onClick={() => setConfirmDelete(true)}>
@@ -129,7 +133,8 @@ export default function BonusPoolPage() {
                   </Button>
                 )}
               </>
-            )
+            )}
+            </>
           }
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

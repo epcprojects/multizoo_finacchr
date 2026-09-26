@@ -13,6 +13,7 @@ import { Figure, NoticeLine, Pill, Section, type Notice } from '../../../../../c
 import { PostBillModal } from '../../../../../components/utilities/BillModals';
 import { deleteBill, getBill, unpostBill, updateBill, type BillDetail } from '../../../../../lib/api/utilities';
 import { errorMessage, formatDate, formatMoney, isAmount } from '../../../../../lib/money';
+import PdfButton from '../../../../../components/reports/PdfButton';
 
 const th = 'px-3 py-2.5 font-semibold';
 const td = 'px-3 py-2';
@@ -157,6 +158,7 @@ export default function UtilityBillPage() {
                   Unpost
                 </Button>
               )}
+              <PdfButton report="utility-bill" params={{ billId: id }} />
               <Button variant="secondary" onClick={() => window.print()}>
                 Print
               </Button>

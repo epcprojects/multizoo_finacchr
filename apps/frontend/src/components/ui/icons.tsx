@@ -396,3 +396,13 @@ export function CampaignIcon({ fill = 'currentColor' }: { fill?: string }) {
     </svg>
   );
 }
+
+export function ReportsIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M7 3.5h8.5l4.5 4.5v14.5H7V3.5Z" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M15.5 3.5V8H20" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10.5 18.5v-3M13.5 18.5v-6M16.5 18.5v-4" stroke={fill} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}

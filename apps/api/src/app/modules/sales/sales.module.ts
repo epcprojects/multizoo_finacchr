@@ -10,5 +10,6 @@ import { SalesController } from './sales.controller';
   imports: [TypeOrmModule.forFeature([SalesItem, SalesDay, SalesLine, SalesEvent]), JournalModule],
   controllers: [SalesController],
   providers: [SalesService],
+  exports: [SalesService],
 })
 export class SalesModule {}

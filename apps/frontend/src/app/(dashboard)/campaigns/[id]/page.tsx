@@ -12,6 +12,8 @@ import { Figure, NoticeLine, Pill, Section, type Notice } from '../../../../comp
 import { CampaignEntryModal, CampaignModal, CloseCampaignModal } from '../../../../components/campaigns/CampaignModals';
 import { getCampaign, reopenCampaign, reverseCampaignEntry, type CampaignDetail, type CampaignEntryType } from '../../../../lib/api/capex';
 import { errorMessage, formatDate, formatMoney } from '../../../../lib/money';
+import PdfButton from '../../../../components/reports/PdfButton';
+
 
 const th = 'px-3 py-2.5 font-semibold';
 const td = 'px-3 py-2';
@@ -58,7 +60,9 @@ export default function CampaignPage() {
           }
           subtitle={`${c.businessUnit.name} · ${formatDate(c.startDate)}${c.endDate ? ` – ${formatDate(c.endDate)}` : ' on'}${c.fundAccount ? ` · fund ${c.fundAccount.code}` : ''}`}
           actions={
-            canManage && (
+            <>
+              <PdfButton report="campaign" params={{ campaignId: c.id }} label="P&L PDF" />
+              {canManage && (
               <>
                 {open && (
                   <>
@@ -88,7 +92,8 @@ export default function CampaignPage() {
                   </Button>
                 )}
               </>
-            )
+            )}
+            </>
           }
         >
           <NoticeLine notice={notice} onClose={() => setNotice(null)} />

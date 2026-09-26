@@ -11,5 +11,6 @@ import { CampaignsController, CapexController } from './capex.controller';
   imports: [TypeOrmModule.forFeature([CapexItem, Campaign, CampaignEntry]), JournalModule],
   controllers: [CapexController, CampaignsController],
   providers: [CapexService, CampaignsService],
+  exports: [CapexService, CampaignsService],
 })
 export class CapexModule {}

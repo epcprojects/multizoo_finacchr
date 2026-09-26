@@ -43,6 +43,8 @@ import { seedLoansUtilities } from './loans-utilities.seed';
 import { SalesDay, SalesEvent, SalesItem, SalesLine } from '../../app/modules/sales/entities/sales.entity';
 import { Campaign, CampaignEntry, CapexItem } from '../../app/modules/capex/entities/capex.entity';
 import { seedSalesCapex } from './sales-capex.seed';
+import { ReportArchive, ReportFile, ReportSchedule } from '../../app/modules/reports/entities/report.entity';
+import { seedReports } from './reports.seed';
 
 async function main() {
   const dataSource = new DataSource({
@@ -106,6 +108,9 @@ async function main() {
       CapexItem,
       Campaign,
       CampaignEntry,
+      ReportArchive,
+      ReportFile,
+      ReportSchedule,
     ],
     synchronize: false,
   });
@@ -121,6 +126,7 @@ async function main() {
   await seedPayroll(dataSource);
   await seedLoansUtilities(dataSource);
   await seedSalesCapex(dataSource);
+  await seedReports(dataSource);
 
   await dataSource.destroy();
   console.log('Done.');

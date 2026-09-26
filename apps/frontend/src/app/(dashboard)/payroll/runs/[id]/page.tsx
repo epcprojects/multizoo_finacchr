@@ -27,6 +27,8 @@ import {
   type PayrollRunDetail,
 } from '../../../../../lib/api/payroll';
 import { errorMessage, formatDate, formatMoney, fromPaisa, todayIso, toPaisa } from '../../../../../lib/money';
+import PdfButton from '../../../../../components/reports/PdfButton';
+
 
 const m = (v: string) => (toPaisa(v) === 0n ? <span className="text-gray-300">—</span> : formatMoney(v, { prefix: false }));
 
@@ -117,7 +119,10 @@ export default function PayrollRunPage() {
               : `Finalised ${run.finalizedAt ? formatDate(run.finalizedAt.slice(0, 10)) : ''}${run.finalizedByName ? ` by ${run.finalizedByName}` : ''} on payroll policy v${run.policy?.version ?? '?'}. Attendance for the month is locked.`
           }
           actions={
-            canRun && (
+            <>
+              <PdfButton report="payroll-register" params={{ runId: run.id }} label="Register PDF" />
+              <PdfButton report="payslips" params={{ runId: run.id }} label="Payslips PDF" />
+              {canRun && (
               <>
                 {draft && (
                   <>
@@ -159,7 +164,8 @@ export default function PayrollRunPage() {
                   </Button>
                 )}
               </>
-            )
+            )}
+            </>
           }
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

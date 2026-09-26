@@ -29,6 +29,7 @@ import {
   HrIcon,
   SettingsIcon,
   ChevronIcon,
+  ReportsIcon,
 } from '../ui/icons';
 
 type NavItem = {
@@ -63,6 +64,8 @@ const HR_VIEWERS = [
 
 const navigation: NavEntry[] = [
   { href: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+  // Cross-cutting (M12): every PDF, generated on demand or on a schedule, and the archive.
+  { href: '/reports', label: 'Reports', icon: <ReportsIcon />, anyPermissions: ['reports.generate', 'reports.generate_own_unit'] },
   {
     key: 'finance',
     label: 'Finance',

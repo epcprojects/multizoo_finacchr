@@ -9,5 +9,6 @@ import { CostCentresController } from './cost-centres.controller';
   imports: [TypeOrmModule.forFeature([CostCentre])],
   controllers: [CostCentresController],
   providers: [CostCentresService],
+  exports: [CostCentresService],
 })
 export class CostCentresModule {}

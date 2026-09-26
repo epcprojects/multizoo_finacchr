@@ -33,5 +33,6 @@ import { AdvancesController, BonusPoolsController, PayrollController, Settlement
   ],
   controllers: [PayrollController, AdvancesController, BonusPoolsController, SettlementsController],
   providers: [PayrollEngine, PayrollService, AdvancesService, BonusService, PayrollPoliciesService, SettlementsService],
+  exports: [PayrollService, BonusService, SettlementsService],
 })
 export class PayrollModule {}

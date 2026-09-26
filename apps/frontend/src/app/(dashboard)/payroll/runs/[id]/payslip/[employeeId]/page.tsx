@@ -8,6 +8,7 @@ import { Pill } from '../../../../../../../components/hr/ui';
 import { EMPLOYMENT_TYPE_LABELS, formatDays, formatMonth } from '../../../../../../../lib/api/hr';
 import { RUN_STATUS, getPayslip, type PayslipView } from '../../../../../../../lib/api/payroll';
 import { errorMessage, formatDate, formatMoney, fromPaisa, toPaisa } from '../../../../../../../lib/money';
+import PdfButton from '../../../../../../../components/reports/PdfButton';
 
 function Line({ label, sub, amount, strong }: { label: ReactNode; sub?: string; amount: string; strong?: boolean }) {
   return (
@@ -46,9 +47,12 @@ export default function PayslipPage() {
           <Link href={`/payroll/runs/${run.id}`} className="text-sm text-gray-600 hover:text-accent">
             ← {run.businessUnit.name} — {formatMonth(run.month)}
           </Link>
-          <Button variant="secondary" onClick={() => window.print()}>
-            Print
-          </Button>
+          <span className="flex items-center gap-2">
+            <PdfButton report="payslips" params={{ runId: id, employeeId }} />
+            <Button variant="secondary" onClick={() => window.print()}>
+              Print
+            </Button>
+          </span>
         </div>
 
         <article className="rounded-xl bg-white p-6 text-sm text-gray-900 shadow-[0_0_35px_0_rgb(0_0_0/0.04)] print:shadow-none">

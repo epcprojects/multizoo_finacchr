@@ -11,5 +11,6 @@ import { UtilitiesController } from './utilities.controller';
   imports: [TypeOrmModule.forFeature([UtilityConnection, SubMeter, UtilityBill]), JournalModule, LoansModule],
   controllers: [UtilitiesController],
   providers: [UtilitiesService],
+  exports: [UtilitiesService],
 })
 export class UtilitiesModule {}
