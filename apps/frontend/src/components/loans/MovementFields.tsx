@@ -84,7 +84,7 @@ export default function MovementFields({
   }, [unitId]);
 
   const choices = useMemo(() => {
-    const plain = accounts.filter((a) => !a.loanId && !a.partnerId && !a.accountClass?.isReserve && a.systemKey !== 'OPENING_BALANCE_EQUITY');
+    const plain = accounts.filter((a) => !a.loanId && !a.campaignId && !a.partnerId && !a.accountClass?.isReserve && a.systemKey !== 'OPENING_BALANCE_EQUITY');
     switch (verb?.pick) {
       case 'CASH':
         return plain.filter((a) => a.accountClass?.isLiquid);

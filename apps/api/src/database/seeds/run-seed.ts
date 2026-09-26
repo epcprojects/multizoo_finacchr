@@ -40,6 +40,9 @@ import { Counterparty, Loan, LoanMovement } from '../../app/modules/loans/entiti
 import { SubMeter, UtilityBill, UtilityConnection } from '../../app/modules/utilities/entities/utility.entity';
 import { CostCentre } from '../../app/modules/cost-centres/entities/cost-centre.entity';
 import { seedLoansUtilities } from './loans-utilities.seed';
+import { SalesDay, SalesEvent, SalesItem, SalesLine } from '../../app/modules/sales/entities/sales.entity';
+import { Campaign, CampaignEntry, CapexItem } from '../../app/modules/capex/entities/capex.entity';
+import { seedSalesCapex } from './sales-capex.seed';
 
 async function main() {
   const dataSource = new DataSource({
@@ -96,6 +99,13 @@ async function main() {
       SubMeter,
       UtilityBill,
       CostCentre,
+      SalesItem,
+      SalesDay,
+      SalesLine,
+      SalesEvent,
+      CapexItem,
+      Campaign,
+      CampaignEntry,
     ],
     synchronize: false,
   });
@@ -110,6 +120,7 @@ async function main() {
   await seedHr(dataSource);
   await seedPayroll(dataSource);
   await seedLoansUtilities(dataSource);
+  await seedSalesCapex(dataSource);
 
   await dataSource.destroy();
   console.log('Done.');

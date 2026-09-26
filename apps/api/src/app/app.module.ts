@@ -18,6 +18,8 @@ import { PayrollModule } from './modules/payroll/payroll.module';
 import { LoansModule } from './modules/loans/loans.module';
 import { UtilitiesModule } from './modules/utilities/utilities.module';
 import { CostCentresModule } from './modules/cost-centres/cost-centres.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { CapexModule } from './modules/capex/capex.module';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
@@ -50,6 +52,8 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
     LoansModule,
     UtilitiesModule,
     CostCentresModule,
+    SalesModule,
+    CapexModule,
   ],
   controllers: [AppController],
   providers: [

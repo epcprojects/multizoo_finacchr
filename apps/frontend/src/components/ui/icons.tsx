@@ -369,3 +369,30 @@ export function CostCentreIcon({ fill = 'currentColor' }: { fill?: string }) {
     </svg>
   );
 }
+
+export function SalesIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M4 9.5V7a1.5 1.5 0 0 1 1.5-1.5h15A1.5 1.5 0 0 1 22 7v2.5a2.5 2.5 0 0 0 0 5V17a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 4 17v-2.5a2.5 2.5 0 0 0 0-5Z" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M15.5 6v12" stroke={fill} strokeWidth="1.6" strokeDasharray="2 2" />
+    </svg>
+  );
+}
+
+export function CapexIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M4 21h18M6.5 21V11l6.5-5 6.5 5v10" stroke={fill} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10.5 21v-5h5v5" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function CampaignIcon({ fill = 'currentColor' }: { fill?: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none">
+      <path d="M17.5 4.5a7.5 7.5 0 1 0 4 11.2A6 6 0 0 1 17.5 4.5Z" stroke={fill} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m19 8.5.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5.5-1.3Z" fill={fill} />
+    </svg>
+  );
+}

@@ -31,6 +31,8 @@ export const PERMISSION_CATALOG = [
   { label: 'Run the daily income allocation', value: 'allocation.run' },
   { label: 'View employee records & HR policy', value: 'employee.view' },
   { label: 'Manage utility bills & allocation', value: 'utilities.manage' },
+  { label: 'Keep the price lists & peak events', value: 'sales.manage' },
+  { label: 'Keep the capex register & run campaigns', value: 'capex.manage' },
 ];
 
 const MODULE_LABELS: Record<string, string> = {
@@ -52,6 +54,8 @@ const MODULE_LABELS: Record<string, string> = {
   accounts: 'Chart of Accounts',
   allocation: 'Income Allocation',
   utilities: 'Utilities',
+  sales: 'Sales',
+  capex: 'Capex & Campaigns',
 };
 
 export type PermissionModule = {

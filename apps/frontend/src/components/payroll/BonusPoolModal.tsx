@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import { MonthPicker, TextArea, UnitPicker } from '../hr/ui';
+import Select from '../ui/Select';
 import { createBonusPool, type BonusPoolDetail } from '../../lib/api/payroll';
+import { getSalesTotal } from '../../lib/api/sales';
 import type { BusinessUnitRecord } from '../../lib/api/ledger';
 import { errorMessage, formatMoney, isAmount, todayIso, toPaisa } from '../../lib/money';
 
@@ -27,6 +29,9 @@ export default function BonusPoolModal({ isOpen, units, unitId: preset, month: p
   const [sales, setSales] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [category, setCategory] = useState('');
+  const [fromSales, setFromSales] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -36,7 +41,35 @@ export default function BonusPoolModal({ isOpen, units, unitId: preset, month: p
     setBasis('');
     setSales('');
     setError(null);
+    setFromSales(null);
   }, [isOpen, preset, presetMonth, units]);
+
+  // The unit's sales categories, so the pool can take its qualifying sales from the posted records (Module 7).
+  const [y, mo] = month.split('-').map(Number);
+  const monthEnd = `${month}-${String(new Date(Date.UTC(y, mo, 0)).getUTCDate()).padStart(2, '0')}`;
+  useEffect(() => {
+    if (!isOpen || !unitId) return setCategories([]);
+    getSalesTotal({ businessUnitId: unitId, from: `${month}-01`, to: monthEnd }).then(
+      (t) => {
+        setCategories(t.categories);
+        setCategory((cur) => (cur && t.categories.includes(cur) ? cur : t.categories.find((c) => /school/i.test(c)) ?? ''));
+      },
+      () => setCategories([]),
+    );
+  }, [isOpen, unitId, month, monthEnd]);
+
+  async function takeFromSales() {
+    setError(null);
+    try {
+      const t = await getSalesTotal({ businessUnitId: unitId, from: `${month}-01`, to: monthEnd, category: category || undefined });
+      setSales(t.amount);
+      const what = category ? `${category} sales` : 'All sales';
+      setBasis(`${what}, ${month}-01 to ${monthEnd}, from ${t.days} posted sales days`);
+      setFromSales(`${what} for the month: ${formatMoney(t.amount)} over ${t.days} days.`);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not read the sales records.'));
+    }
+  }
 
   // FLOOR(sales × pct, 1), as the sheet does — shown before saving.
   const pool =
@@ -89,6 +122,22 @@ export default function BonusPoolModal({ isOpen, units, unitId: preset, month: p
           onChange={(e) => setSales(e.target.value.replace(/[^\d.]/g, ''))}
           helperText={pool !== null ? `${commissionPct}% → a pool of ${formatMoney(pool, { decimals: false })} (rounded down to the rupee)` : undefined}
         />
+        {categories.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3 sm:flex-row sm:items-end">
+            <div className="sm:flex-1">
+              <Select
+                label="Or take it from the sales records"
+                value={category}
+                onChange={setCategory}
+                options={[{ label: 'All sales', value: '' }, ...categories.map((c) => ({ label: c, value: c }))]}
+              />
+            </div>
+            <button type="button" className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50" onClick={() => void takeFromSales()}>
+              Use this month’s total
+            </button>
+          </div>
+        )}
+        {fromSales && <p className="-mt-2 text-xs text-gray-600">{fromSales}</p>}
         <TextArea label="What the sales are" value={basis} rows={2} placeholder="e.g. School-trip ticket sales, 1–30 Nov" onChange={setBasis} />
         <p className="text-xs text-gray-600">
           Everyone at the unit with a bonus tier is added to start with; take people out or set trip counts on the next screen.

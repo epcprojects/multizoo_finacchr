@@ -155,6 +155,8 @@ export interface AccountRecord {
   reserveKind: ReserveKind | null;
   /** A loan's own account — posted from the Loans screens only. */
   loanId: string | null;
+  /** A campaign's fund — posted from the Campaigns screens only. */
+  campaignId?: string | null;
   balance: string;
 }
 

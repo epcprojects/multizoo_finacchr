@@ -60,6 +60,11 @@ export enum Permission {
   // Module 6 — Loans, utilities & cost centres
   /** Set up utility connections, enter bills and post their allocation. */
   UTILITIES_MANAGE = 'utilities.manage',
+  // Module 7 — Sales, capex & campaigns
+  /** Keep each unit's price list (what's sold, at what rate, into which income account) and the peak events sales are compared over. */
+  SALES_MANAGE = 'sales.manage',
+  /** Keep the capex register and run seasonal campaigns (their money in and out, closing them). */
+  CAPEX_MANAGE = 'capex.manage',
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +160,12 @@ export enum JournalEntrySource {
   LOANS = 'LOANS',
   /** A utility bill's allocation — undone by unposting the bill. */
   UTILITIES = 'UTILITIES',
+  /** A day's sales sheet — undone by unposting the day on the Sales screen. */
+  SALES = 'SALES',
+  /** A capital purchase paid from the capex register — undone by removing it there. */
+  CAPEX = 'CAPEX',
+  /** A campaign's money in and out, and its closing — undone from the campaign's page. */
+  CAMPAIGNS = 'CAMPAIGNS',
 }
 
 // ---------------------------------------------------------------------------
@@ -414,4 +425,67 @@ export enum CostCentreCharge {
   UNIT = 'UNIT',
   /** A partner's capital & current account, out of their profit (the "342" media office). */
   PARTNER = 'PARTNER',
+}
+
+// ---------------------------------------------------------------------------
+// Sales, capex & campaigns (Module 7)
+// ---------------------------------------------------------------------------
+
+/** How a price-list item is sold. */
+export enum SalesPricing {
+  /** Quantity × rate — tickets, feed packets, rides (the Ticket sales sheet's Qty × Rate). */
+  PER_UNIT = 'PER_UNIT',
+  /** Just the day's amount — the cafe, Joy Land and gift-shop sheets record a day's total, not items. */
+  AMOUNT = 'AMOUNT',
+}
+
+/** Whether each one sold is a person through the gate — the Eid sheet's "Foot Fall" columns. */
+export enum FootfallKind {
+  NONE = 'NONE',
+  ADULT = 'ADULT',
+  KID = 'KID',
+}
+
+/**
+ * A unit's day of sales. A DRAFT can be filled in through the day; POSTED
+ * puts it on the ledger as money in (and so in front of the allocation
+ * engine). Unposting reverses the entry and returns it to DRAFT.
+ */
+export enum SalesDayStatus {
+  DRAFT = 'DRAFT',
+  POSTED = 'POSTED',
+}
+
+/** Whether a capital purchase is still in use. */
+export enum CapexStatus {
+  ACTIVE = 'ACTIVE',
+  /** Sold, scrapped or written off — kept in the register's history. */
+  RETIRED = 'RETIRED',
+}
+
+/** How a capex item's purchase reaches the ledger. */
+export enum CapexFunding {
+  /** Paid here, from the unit's cash, bank or wallet (optionally out of a reserve). */
+  PAID_HERE = 'PAID_HERE',
+  /** Already on the ledger — an entry recorded elsewhere (e.g. a partner paid for it on their loan). */
+  LINKED_ENTRY = 'LINKED_ENTRY',
+  /** Not on the ledger (history, or bought before the system) — the register only. */
+  NOT_RECORDED = 'NOT_RECORDED',
+}
+
+export enum CampaignStatus {
+  OPEN = 'OPEN',
+  /** Balanced off: any shortfall charged to, or surplus taken into, the host unit. */
+  CLOSED = 'CLOSED',
+}
+
+/** A campaign's money: raised for it, or spent on it. */
+export enum CampaignEntryType {
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
+}
+
+export enum CampaignEntryStatus {
+  POSTED = 'POSTED',
+  REVERSED = 'REVERSED',
 }

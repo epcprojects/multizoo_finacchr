@@ -67,7 +67,7 @@ export default function EntryDetailModal({
   // A day's waterfall is undone from the Allocation screen, payroll postings from the Payroll
   // screens, loan movements from Loans and utility recharges from Utilities — each keeps its
   // own record in step.
-  const fromEngine = ['ALLOCATION', 'PAYROLL', 'LOANS', 'UTILITIES'].includes(entry?.source ?? '');
+  const fromEngine = ['ALLOCATION', 'PAYROLL', 'LOANS', 'UTILITIES', 'SALES', 'CAPEX', 'CAMPAIGNS'].includes(entry?.source ?? '');
   const reversible = entry && !entry.reversedById && entry.kind !== 'REVERSAL' && !fromEngine;
 
   return (
@@ -190,6 +190,36 @@ export default function EntryDetailModal({
                 Utilities screen
               </Link>
               .
+            </p>
+          )}
+
+          {entry.source === 'SALES' && !entry.reversedById && (
+            <p className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+              This is a day&apos;s sales. To correct it, unpost the day on the{' '}
+              <Link href="/sales" className="font-medium underline">
+                Sales screen
+              </Link>
+              , fix it and post it again.
+            </p>
+          )}
+
+          {entry.source === 'CAPEX' && !entry.reversedById && (
+            <p className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+              This paid for an item in the capex register. To undo it, remove the item on the{' '}
+              <Link href="/capex" className="font-medium underline">
+                Capex screen
+              </Link>
+              .
+            </p>
+          )}
+
+          {entry.source === 'CAMPAIGNS' && !entry.reversedById && (
+            <p className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800">
+              This belongs to a campaign. Reverse it (or reopen the campaign) on the{' '}
+              <Link href="/campaigns" className="font-medium underline">
+                Campaigns screen
+              </Link>{' '}
+              so its P&amp;L stays complete.
             </p>
           )}
 

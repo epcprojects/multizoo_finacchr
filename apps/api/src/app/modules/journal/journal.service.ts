@@ -80,6 +80,12 @@ export interface ReverseOptions {
   fromLoans?: boolean;
   /** A utility bill's entries are undone by unposting the bill. */
   fromUtilities?: boolean;
+  /** A sales day's entry is undone by unposting the day. */
+  fromSales?: boolean;
+  /** A capex purchase paid from the register is undone by removing it there. */
+  fromCapex?: boolean;
+  /** A campaign's entries are undone from the campaign's page. */
+  fromCampaigns?: boolean;
   source?: JournalEntrySource;
 }
 
@@ -187,6 +193,11 @@ export class JournalService {
       ) {
         throw new BadRequestException(
           `${account.name} is a loan account — record lending, borrowing and repayments from the Loans screen, so the loan's history stays complete.`,
+        );
+      }
+      if (account.campaignId && opts.source !== JournalEntrySource.CAMPAIGNS) {
+        throw new BadRequestException(
+          `${account.name} is a campaign's fund — record money raised for or spent on it from the Campaigns screen, so its P&L stays complete.`,
         );
       }
       if (account.businessUnitId && account.businessUnitId !== unit.id) {
@@ -522,6 +533,21 @@ export class JournalService {
     if (original.source === JournalEntrySource.UTILITIES && !opts.fromUtilities) {
       throw new BadRequestException(
         `${formatEntryNo(original.entryNo)} is part of a utility bill's allocation — unpost the bill from the Utilities screen instead.`,
+      );
+    }
+    if (original.source === JournalEntrySource.SALES && !opts.fromSales) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} is a day's sales — unpost the day on the Sales screen so its sheet stays in step.`,
+      );
+    }
+    if (original.source === JournalEntrySource.CAPEX && !opts.fromCapex) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} paid for an item in the capex register — remove or correct it there.`,
+      );
+    }
+    if (original.source === JournalEntrySource.CAMPAIGNS && !opts.fromCampaigns) {
+      throw new BadRequestException(
+        `${formatEntryNo(original.entryNo)} belongs to a campaign — reverse it (or reopen the campaign) from the Campaigns screen.`,
       );
     }
     if (original.source === JournalEntrySource.PAYROLL && !opts.fromPayroll) {

@@ -56,6 +56,9 @@ const ROLE_SEED: Record<SeedRoleName, { description: string; permissions: Permis
       P.ALLOCATION_RUN,
       // Utility bill allocation sheet — "Accountant" (Part 08 report table).
       P.UTILITIES_MANAGE,
+      // Module 7: the price lists and peak events; the capex register and campaigns.
+      P.SALES_MANAGE,
+      P.CAPEX_MANAGE,
     ],
   },
   [SeedRoleName.BRANCH_MANAGER]: {

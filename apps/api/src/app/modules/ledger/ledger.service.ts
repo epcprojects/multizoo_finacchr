@@ -453,6 +453,7 @@ export class LedgerService {
       reserveKind: reserveKind(a),
       /** A loan's own account — posted to from the Loans screens only (Module 6). */
       loanId: a.loanId,
+      campaignId: a.campaignId,
     };
   }
 }

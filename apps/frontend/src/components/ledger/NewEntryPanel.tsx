@@ -151,7 +151,7 @@ export default function NewEntryPanel({
     listAccounts({ businessUnitId: unitId })
       .then((list) => {
         // Loan accounts are posted from the Loans screens only.
-        const usable = list.filter((a) => a.isPostable && a.isActive && !a.loanId);
+        const usable = list.filter((a) => a.isPostable && a.isActive && !a.loanId && !a.campaignId);
         setAccounts(usable.filter((a) => !a.accountClass?.isReserve));
         // Buckets and partners' profit reserves (the offset never shows — the ledger handles it).
         setReserves(usable.filter((a) => a.reserveKind === 'BUCKET' || a.reserveKind === 'PARTNER'));

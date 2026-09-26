@@ -22,6 +22,9 @@ import {
   LoansIcon,
   UtilitiesIcon,
   CostCentreIcon,
+  SalesIcon,
+  CapexIcon,
+  CampaignIcon,
   FinanceIcon,
   HrIcon,
   SettingsIcon,
@@ -66,6 +69,12 @@ const navigation: NavEntry[] = [
     icon: <FinanceIcon />,
     items: [
       { href: '/transactions', label: 'Entries', icon: <TransactionsIcon />, anyPermissions: ['ledger.view', 'transactions.create_own_unit'] },
+      {
+        href: '/sales',
+        label: 'Sales',
+        icon: <SalesIcon />,
+        anyPermissions: ['transactions.create_own_unit', 'ledger.view', 'pnl.view_consolidated', 'sales.manage'],
+      },
       { href: '/accounts', label: 'Accounts', icon: <AccountsIcon />, anyPermissions: ['ledger.view'] },
       { href: '/allocation', label: 'Allocation', icon: <AllocationIcon />, anyPermissions: ['ledger.view'] },
       { href: '/loans', label: 'Loans', icon: <LoansIcon />, anyPermissions: ['loans.initiate', 'loans.approve'] },
@@ -76,6 +85,8 @@ const navigation: NavEntry[] = [
         icon: <CostCentreIcon />,
         anyPermissions: ['ledger.view', 'accounts.manage', 'rules.edit_allocation'],
       },
+      { href: '/capex', label: 'Capex', icon: <CapexIcon />, anyPermissions: ['capex.manage', 'pnl.view_consolidated'] },
+      { href: '/campaigns', label: 'Campaigns', icon: <CampaignIcon />, anyPermissions: ['capex.manage', 'pnl.view_consolidated'] },
     ],
   },
   {

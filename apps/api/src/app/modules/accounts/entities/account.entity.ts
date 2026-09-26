@@ -93,4 +93,14 @@ export class Account extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   @Index()
   loanId!: string | null;
+
+  /**
+   * Set on a campaign's fund (Module 7): "Campaign — Ramazan 2023". What's
+   * raised for the campaign is credited to it and what's spent debited, so
+   * it never touches the unit's income or the allocation engine. Only the
+   * Campaigns screens post to it.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  campaignId!: string | null;
 }
